@@ -11,6 +11,8 @@ const UPDATABLE_FIELDS: (keyof Actividad)[] = [
   'fecha_inicio',
   'fecha_fin',
   'ubicacion',
+  'ubicacion_lat',
+  'ubicacion_lng',
   'descripcion',
   'estado',
   'parent_activity_id',

@@ -14,125 +14,168 @@ import { TechniciansService } from '../../core/services/technicians.service';
 import { ActivityTypesService } from '../../core/services/activity-types.service';
 import { Actividad, EstadoActividad, Tecnico, TipoActividad } from '../../core/models';
 import { colorDeActividad, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
+import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
+import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
 
 interface DropPending {
   actividad: Actividad;
   start: Date;
 }
 
+const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'visita_fallida', 'completada'];
+
 @Component({
   selector: 'app-activities-calendar',
   standalone: true,
-  imports: [FullCalendarModule, FormsModule],
+  imports: [FullCalendarModule, FormsModule, DireccionAutocompleteComponent, SpotlightCardComponent],
   template: `
-    <div class="flex gap-4">
-      <!-- Panel en_cola -->
-      <aside class="w-72 shrink-0 card p-4 space-y-3 h-fit sticky top-4">
-        <div class="flex items-center justify-between">
-          <h3 class="font-semibold text-slate-700">En cola</h3>
-          <button class="text-xs text-brand-600 hover:underline" (click)="toggleCreate()">
-            {{ showCreate() ? 'Cancelar' : '+ Nueva' }}
-          </button>
-        </div>
+    <div class="space-y-4">
+      <!-- KPIs -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-spotlight-card
+          title="Coordinadas sin técnico"
+          [count]="kpiCoordinadasSinTec()"
+          hint="Actividades coordinadas con cliente que aún no tienen técnico asignado"
+          tone="indigo"
+        ></app-spotlight-card>
+        <app-spotlight-card
+          title="Sin técnico · faltan <24 hrs"
+          [count]="kpiMenos24hSinTec()"
+          hint="Inminentes (<24h) sin técnico asignado"
+          tone="rose"
+        ></app-spotlight-card>
+      </div>
 
-        @if (showCreate()) {
-          <div class="space-y-2 p-3 rounded-md bg-slate-50 border border-slate-200">
-            <div>
-              <label class="label">Cliente *</label>
-              <input class="input" [(ngModel)]="nuevo.cliente" placeholder="Nombre cliente"/>
+      <div class="flex gap-4">
+        <!-- Panel en_cola -->
+        <aside class="w-72 shrink-0 card p-4 space-y-3 h-fit sticky top-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-semibold text-slate-700">En cola</h3>
+            <button class="text-xs text-brand-600 hover:underline" (click)="toggleCreate()">
+              {{ showCreate() ? 'Cancelar' : '+ Nueva' }}
+            </button>
+          </div>
+
+          @if (showCreate()) {
+            <div class="space-y-2 p-3 rounded-md bg-slate-50 border border-slate-200">
+              <div>
+                <label class="label">Cliente *</label>
+                <input class="input" [(ngModel)]="nuevo.cliente" placeholder="Nombre cliente"/>
+              </div>
+              <div>
+                <label class="label">Tipo *</label>
+                <select class="input" [(ngModel)]="nuevo.tipo_id">
+                  <option [ngValue]="null">—</option>
+                  @for (tp of tipos(); track tp.id) { <option [ngValue]="tp.id">{{ tp.nombre }}</option> }
+                </select>
+              </div>
+              <div>
+                <label class="label">Técnico</label>
+                <select class="input" [(ngModel)]="nuevo.tecnico_id">
+                  <option [ngValue]="null">—</option>
+                  @for (t of tecnicos(); track t.id) {
+                    <option [ngValue]="t.id">{{ t.nombre }} {{ t.apellidos }}</option>
+                  }
+                </select>
+              </div>
+              <div>
+                <label class="label">Ubicación</label>
+                <app-direccion-autocomplete
+                  [value]="nuevo.ubicacion"
+                  (valueChange)="nuevo.ubicacion = $event"
+                  (selected)="onDireccionNueva($event)"
+                ></app-direccion-autocomplete>
+              </div>
+              <button class="btn-primary w-full" (click)="createEnCola()" [disabled]="creating()">
+                {{ creating() ? 'Creando…' : 'Crear en cola' }}
+              </button>
             </div>
+          }
+
+          <div #colaList class="space-y-2 max-h-[70vh] overflow-auto">
+            @for (a of enCola(); track a.id) {
+              <div class="encola-card group relative rounded-md border border-slate-200 bg-white p-3 cursor-grab hover:shadow-md hover:border-brand-300 transition"
+                   [attr.data-actividad-id]="a.id">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="font-medium text-sm truncate flex items-center gap-2">
+                    {{ a.nombre_cliente }}
+                    @if (counterOf(a.id) > 1) {
+                      <span class="chip bg-brand-100 text-brand-700 text-[10px]">×{{ counterOf(a.id) }}</span>
+                    }
+                  </div>
+                  <div class="text-xs text-slate-500 truncate">
+                    {{ a.tecnico ? (a.tecnico.nombre + ' ' + a.tecnico.apellidos) : 'Sin asignar' }}
+                  </div>
+                </div>
+                <div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300">
+                  <div class="overflow-hidden">
+                    <div class="pt-2 mt-2 border-t border-slate-100 text-xs text-slate-600 space-y-1 relative">
+                      <div>Tipo: <span class="font-medium">{{ a.tipo_actividad?.nombre ?? '—' }}</span></div>
+                      <div>
+                        Estado:
+                        <span class="chip text-white" [style.background]="colorDe(a)">{{ ESTADO_LABEL[a.estado] }}</span>
+                      </div>
+                      <button type="button"
+                              class="absolute right-0 top-0 w-6 h-6 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 text-xs font-bold"
+                              (mousedown)="$event.stopPropagation()"
+                              (click)="openMultiplicar(a, $event)"
+                              title="Multiplicar">×</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            } @empty {
+              <div class="text-xs text-slate-400 text-center py-6">No hay actividades en cola.</div>
+            }
+          </div>
+        </aside>
+
+        <!-- Calendario -->
+        <div class="flex-1 min-w-0 card p-4 space-y-4">
+          <div class="flex flex-wrap gap-3 items-end">
             <div>
-              <label class="label">Tipo *</label>
-              <select class="input" [(ngModel)]="nuevo.tipo_id">
-                <option [ngValue]="null">—</option>
-                @for (tp of tipos(); track tp.id) { <option [ngValue]="tp.id">{{ tp.nombre }}</option> }
+              <label class="label">Cliente</label>
+              <select class="input" [ngModel]="fCliente()" (ngModelChange)="fCliente.set($event)">
+                <option [ngValue]="''">Todos</option>
+                @for (c of clientes(); track c) { <option [ngValue]="c">{{ c }}</option> }
               </select>
             </div>
             <div>
               <label class="label">Técnico</label>
-              <select class="input" [(ngModel)]="nuevo.tecnico_id">
-                <option [ngValue]="null">—</option>
+              <select class="input" [ngModel]="fTecnico()" (ngModelChange)="fTecnico.set($event)">
+                <option [ngValue]="''">Todos</option>
                 @for (t of tecnicos(); track t.id) {
                   <option [ngValue]="t.id">{{ t.nombre }} {{ t.apellidos }}</option>
                 }
               </select>
             </div>
             <div>
-              <label class="label">Ubicación</label>
-              <input class="input" [(ngModel)]="nuevo.ubicacion"/>
+              <label class="label">Estado</label>
+              <select class="input" [ngModel]="fEstado()" (ngModelChange)="fEstado.set($event)">
+                <option [ngValue]="''">Todos</option>
+                @for (e of estados; track e) { <option [ngValue]="e">{{ ESTADO_LABEL[e] }}</option> }
+              </select>
             </div>
-            <button class="btn-primary w-full" (click)="createEnCola()" [disabled]="creating()">
-              {{ creating() ? 'Creando…' : 'Crear en cola' }}
-            </button>
+            <div>
+              <label class="label">Tipo</label>
+              <select class="input" [ngModel]="fTipo()" (ngModelChange)="fTipo.set($event)">
+                <option [ngValue]="''">Todos</option>
+                @for (tp of tipos(); track tp.id) { <option [ngValue]="tp.id">{{ tp.nombre }}</option> }
+              </select>
+            </div>
+            <button class="btn-secondary ml-auto" (click)="clearFilters()">Limpiar filtros</button>
           </div>
-        }
 
-        <div #colaList class="space-y-2 max-h-[70vh] overflow-auto">
-          @for (a of enCola(); track a.id) {
-            <div class="encola-card group rounded-md border border-slate-200 bg-white p-3 cursor-grab hover:shadow-md hover:border-brand-300 transition"
-                 [attr.data-actividad-id]="a.id">
-              <div class="flex items-center justify-between gap-2">
-                <div class="font-medium text-sm truncate">{{ a.nombre_cliente }}</div>
-                <div class="text-xs text-slate-500 truncate">
-                  {{ a.tecnico ? (a.tecnico.nombre + ' ' + a.tecnico.apellidos) : 'Sin asignar' }}
-                </div>
-              </div>
-              <div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300">
-                <div class="overflow-hidden">
-                  <div class="pt-2 mt-2 border-t border-slate-100 text-xs text-slate-600 space-y-1">
-                    <div>Tipo: <span class="font-medium">{{ a.tipo_actividad?.nombre ?? '—' }}</span></div>
-                    <div>
-                      Estado:
-                      <span class="chip text-white" [style.background]="colorDe(a)">{{ ESTADO_LABEL[a.estado] }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          <full-calendar [options]="options()"></full-calendar>
+
+          @if (msg(); as m) {
+            <div class="text-sm rounded-md px-3 py-2"
+                 [class.bg-green-50]="m.type==='ok'" [class.text-green-700]="m.type==='ok'"
+                 [class.bg-red-50]="m.type==='err'" [class.text-red-700]="m.type==='err'">
+              {{ m.text }}
             </div>
-          } @empty {
-            <div class="text-xs text-slate-400 text-center py-6">No hay actividades en cola.</div>
           }
         </div>
-      </aside>
-
-      <!-- Calendario -->
-      <div class="flex-1 min-w-0 card p-4 space-y-4">
-        <div class="flex flex-wrap gap-3 items-end">
-          <div>
-            <label class="label">Técnico</label>
-            <select class="input" [ngModel]="fTecnico()" (ngModelChange)="fTecnico.set($event)">
-              <option [ngValue]="''">Todos</option>
-              @for (t of tecnicos(); track t.id) {
-                <option [ngValue]="t.id">{{ t.nombre }} {{ t.apellidos }}</option>
-              }
-            </select>
-          </div>
-          <div>
-            <label class="label">Estado</label>
-            <select class="input" [ngModel]="fEstado()" (ngModelChange)="fEstado.set($event)">
-              <option [ngValue]="''">Todos</option>
-              @for (e of estados; track e) { <option [ngValue]="e">{{ ESTADO_LABEL[e] }}</option> }
-            </select>
-          </div>
-          <div>
-            <label class="label">Tipo</label>
-            <select class="input" [ngModel]="fTipo()" (ngModelChange)="fTipo.set($event)">
-              <option [ngValue]="''">Todos</option>
-              @for (tp of tipos(); track tp.id) { <option [ngValue]="tp.id">{{ tp.nombre }}</option> }
-            </select>
-          </div>
-          <button class="btn-secondary ml-auto" (click)="clearFilters()">Limpiar filtros</button>
-        </div>
-
-        <full-calendar [options]="options()"></full-calendar>
-
-        @if (msg(); as m) {
-          <div class="text-sm rounded-md px-3 py-2"
-               [class.bg-green-50]="m.type==='ok'" [class.text-green-700]="m.type==='ok'"
-               [class.bg-red-50]="m.type==='err'" [class.text-red-700]="m.type==='err'">
-            {{ m.text }}
-          </div>
-        }
       </div>
     </div>
 
@@ -156,15 +199,54 @@ interface DropPending {
           </div>
 
           <div>
+            <label class="label">
+              Técnico
+              @if (tecnicoRequerido()) { <span class="text-red-600">*</span> }
+            </label>
+            <select class="input" [(ngModel)]="dropTecnicoId">
+              <option [ngValue]="null">— Sin asignar —</option>
+              @for (t of tecnicos(); track t.id) {
+                <option [ngValue]="t.id">{{ t.nombre }} {{ t.apellidos }}</option>
+              }
+            </select>
+            @if (tecnicoRequerido() && !dropTecnicoId) {
+              <p class="text-xs text-red-600 mt-1">El estado elegido requiere un técnico asignado.</p>
+            }
+          </div>
+
+          <div>
             <label class="label">Duración (minutos)</label>
             <input class="input" type="number" min="15" step="15" [(ngModel)]="dropDuracion"/>
           </div>
 
           <div class="flex gap-2 justify-end pt-2">
             <button class="btn-secondary" (click)="cancelDrop()" [disabled]="confirming()">Cancelar</button>
-            <button class="btn-primary" (click)="confirmDrop()" [disabled]="confirming()">
+            <button class="btn-primary" (click)="confirmDrop()" [disabled]="confirming() || (tecnicoRequerido() && !dropTecnicoId)">
               {{ confirming() ? 'Guardando…' : 'Confirmar' }}
             </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Modal multiplicar -->
+    @if (multPending()) {
+      <div class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4" (click)="multPending.set(null)">
+        <div class="card p-6 w-full max-w-sm space-y-4" (click)="$event.stopPropagation()">
+          <h3 class="font-semibold text-slate-800">Multiplicar actividad</h3>
+          <div class="text-sm text-slate-600">
+            <strong>{{ multPending()!.nombre_cliente }}</strong>
+          </div>
+          <div>
+            <label class="label">Cantidad total (N)</label>
+            <input class="input" type="number" min="1" step="1" [(ngModel)]="multN"/>
+            <p class="text-xs text-slate-500 mt-1">
+              Cada arrastre al calendario consumirá una unidad.
+            </p>
+          </div>
+          <div class="flex gap-2 justify-end">
+            <button class="btn-secondary" (click)="multPending.set(null)">Cancelar</button>
+            <button class="btn-primary" (click)="confirmMultiplicar()">Aplicar</button>
           </div>
         </div>
       </div>
@@ -184,6 +266,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   tecnicos = signal<Tecnico[]>([]);
   tipos = signal<TipoActividad[]>([]);
 
+  fCliente = signal<string>('');
   fTecnico = signal<string>('');
   fEstado = signal<EstadoActividad | ''>('');
   fTipo = signal<string>('');
@@ -193,27 +276,60 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   estados = ESTADOS;
   ESTADO_LABEL = ESTADO_LABEL;
 
-  // Panel en cola
   showCreate = signal(false);
   creating = signal(false);
-  nuevo = { cliente: '', tipo_id: null as string | null, tecnico_id: null as string | null, ubicacion: '' };
+  nuevo = {
+    cliente: '', tipo_id: null as string | null, tecnico_id: null as string | null,
+    ubicacion: '', ubicacion_lat: null as number | null, ubicacion_lng: null as number | null,
+  };
 
-  // Modal drop
   dropPending = signal<DropPending | null>(null);
   dropEstado: EstadoActividad = 'coordinado_con_cliente';
+  dropTecnicoId: string | null = null;
   dropDuracion = 60;
   confirming = signal(false);
 
+  counters = signal<Map<string, number>>(new Map());
+
+  multPending = signal<Actividad | null>(null);
+  multN = 2;
+
+  tecnicoRequerido = computed(() => ESTADOS_REQUIEREN_TECNICO.includes(this.dropEstado));
+
   enCola = computed(() => this.items().filter((a) => a.estado === 'en_cola'));
 
+  clientes = computed(() => {
+    const set = new Set<string>();
+    this.items().forEach((a) => a.nombre_cliente && set.add(a.nombre_cliente));
+    return Array.from(set).sort();
+  });
+
   filtered = computed<Actividad[]>(() => {
-    const t = this.fTecnico(); const e = this.fEstado(); const tp = this.fTipo();
+    const cli = this.fCliente(); const t = this.fTecnico();
+    const e = this.fEstado(); const tp = this.fTipo();
     return this.items().filter((a) => {
+      if (cli && a.nombre_cliente !== cli) return false;
       if (t && a.tecnico_id !== t) return false;
       if (e && a.estado !== e) return false;
       if (tp && a.tipo_actividad_id !== tp) return false;
       return true;
     });
+  });
+
+  kpiCoordinadasSinTec = computed(() =>
+    this.items().filter((a) => a.estado === 'coordinado_con_cliente' && !a.tecnico_id).length
+  );
+
+  kpiMenos24hSinTec = computed(() => {
+    const now = Date.now();
+    const lim = now + 24 * 3600 * 1000;
+    return this.items().filter((a) => {
+      if (a.tecnico_id) return false;
+      if (!a.fecha_inicio) return false;
+      if (a.estado === 'completada' || a.estado === 'visita_fallida') return false;
+      const t = new Date(a.fecha_inicio).getTime();
+      return t >= now && t <= lim;
+    }).length;
   });
 
   options = computed<CalendarOptions>(() => ({
@@ -232,8 +348,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     selectable: true,
     selectMirror: true,
     headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
+      left: 'prev,next today', center: 'title',
       right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
     },
     buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', day: 'Día', list: 'Lista' },
@@ -246,15 +361,11 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     drop: (info) => this.onExternalDrop(info.date, info.draggedEl),
   }));
 
-  async ngOnInit() {
-    await this.reloadAll();
-  }
+  async ngOnInit() { await this.reloadAll(); }
 
   ngAfterViewInit() {
     if (this.colaList) {
-      this.draggable = new Draggable(this.colaList.nativeElement, {
-        itemSelector: '.encola-card',
-      });
+      this.draggable = new Draggable(this.colaList.nativeElement, { itemSelector: '.encola-card' });
     }
   }
 
@@ -269,9 +380,13 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     this.tipos.set(typs);
   }
 
-  clearFilters() { this.fTecnico.set(''); this.fEstado.set(''); this.fTipo.set(''); }
+  clearFilters() {
+    this.fCliente.set(''); this.fTecnico.set(''); this.fEstado.set(''); this.fTipo.set('');
+  }
 
   colorDe(a: Actividad) { return colorDeActividad(a, a.tecnico); }
+
+  counterOf(id: string) { return this.counters().get(id) ?? 1; }
 
   toggleCreate() {
     this.showCreate.set(!this.showCreate());
@@ -279,7 +394,13 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   }
 
   private resetNuevo() {
-    this.nuevo = { cliente: '', tipo_id: null, tecnico_id: null, ubicacion: '' };
+    this.nuevo = { cliente: '', tipo_id: null, tecnico_id: null, ubicacion: '', ubicacion_lat: null, ubicacion_lng: null };
+  }
+
+  onDireccionNueva(d: DireccionSeleccionada) {
+    this.nuevo.ubicacion = d.display_name;
+    this.nuevo.ubicacion_lat = d.lat;
+    this.nuevo.ubicacion_lng = d.lng;
   }
 
   async createEnCola() {
@@ -292,6 +413,8 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
         tipo_actividad_id: this.nuevo.tipo_id,
         tecnico_id: this.nuevo.tecnico_id,
         ubicacion: this.nuevo.ubicacion || null,
+        ubicacion_lat: this.nuevo.ubicacion_lat,
+        ubicacion_lng: this.nuevo.ubicacion_lng,
         estado: 'en_cola',
         fecha_inicio: null,
         fecha_fin: null,
@@ -307,6 +430,23 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     }
   }
 
+  openMultiplicar(a: Actividad, ev: Event) {
+    ev.stopPropagation();
+    this.multPending.set(a);
+    this.multN = Math.max(2, this.counterOf(a.id));
+  }
+
+  confirmMultiplicar() {
+    const a = this.multPending();
+    if (!a) return;
+    const n = Math.max(1, Math.floor(this.multN));
+    const map = new Map(this.counters());
+    if (n <= 1) map.delete(a.id); else map.set(a.id, n);
+    this.counters.set(map);
+    this.multPending.set(null);
+    this.flash('ok', n > 1 ? `Multiplicado ×${n}.` : 'Multiplicador removido.');
+  }
+
   private onExternalDrop(date: Date, el: HTMLElement) {
     const id = el.dataset['actividadId'];
     if (!id) return;
@@ -314,6 +454,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     if (!actividad) return;
     this.dropPending.set({ actividad, start: date });
     this.dropEstado = 'coordinado_con_cliente';
+    this.dropTecnicoId = actividad.tecnico_id ?? null;
     this.dropDuracion = 60;
   }
 
@@ -330,15 +471,46 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   async confirmDrop() {
     const p = this.dropPending();
     if (!p) return;
+    if (this.tecnicoRequerido() && !this.dropTecnicoId) {
+      this.flash('err', 'El estado elegido requiere un técnico.');
+      return;
+    }
     this.confirming.set(true);
     try {
       const start = p.start;
       const end = new Date(start.getTime() + this.dropDuracion * 60000);
-      await this.svc.update(p.actividad.id, {
-        fecha_inicio: start.toISOString(),
-        fecha_fin: end.toISOString(),
-        estado: this.dropEstado,
-      });
+      const counter = this.counters().get(p.actividad.id) ?? 1;
+
+      if (counter > 1) {
+        await this.svc.create({
+          nombre_cliente: p.actividad.nombre_cliente,
+          tipo_actividad_id: p.actividad.tipo_actividad_id,
+          tecnico_id: this.dropTecnicoId,
+          ubicacion: p.actividad.ubicacion,
+          ubicacion_lat: p.actividad.ubicacion_lat,
+          ubicacion_lng: p.actividad.ubicacion_lng,
+          descripcion: p.actividad.descripcion,
+          fecha_inicio: start.toISOString(),
+          fecha_fin: end.toISOString(),
+          estado: this.dropEstado,
+          parent_activity_id: p.actividad.id,
+        });
+        const map = new Map(this.counters());
+        const newVal = counter - 1;
+        if (newVal <= 1) map.delete(p.actividad.id); else map.set(p.actividad.id, newVal);
+        this.counters.set(map);
+      } else {
+        await this.svc.update(p.actividad.id, {
+          fecha_inicio: start.toISOString(),
+          fecha_fin: end.toISOString(),
+          estado: this.dropEstado,
+          tecnico_id: this.dropTecnicoId,
+        });
+        const map = new Map(this.counters());
+        map.delete(p.actividad.id);
+        this.counters.set(map);
+      }
+
       await this.reloadAll();
       this.dropPending.set(null);
       this.flash('ok', 'Actividad agendada.');

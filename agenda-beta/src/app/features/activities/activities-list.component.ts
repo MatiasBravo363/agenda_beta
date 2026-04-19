@@ -7,6 +7,7 @@ import { ActivitiesService } from '../../core/services/activities.service';
 import { Actividad, EstadoActividad, Tecnico } from '../../core/models';
 import { colorDeActividad, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { TechniciansService } from '../../core/services/technicians.service';
+import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
 
 type SortKey = 'id' | 'cliente' | 'tecnico' | 'tipo' | 'estado' | 'inicio' | 'ubicacion';
 type SortDir = 'asc' | 'desc';
@@ -14,13 +15,35 @@ type SortDir = 'asc' | 'desc';
 @Component({
   selector: 'app-activities-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe],
+  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent],
   template: `
     <div class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-spotlight-card
+          title="Coordinadas sin técnico"
+          [count]="kpiCoordinadasSinTec()"
+          hint="Actividades coordinadas con cliente sin técnico asignado"
+          tone="indigo"
+        ></app-spotlight-card>
+        <app-spotlight-card
+          title="Sin técnico · faltan <24 hrs"
+          [count]="kpiMenos24hSinTec()"
+          hint="Inminentes (<24h) sin técnico asignado"
+          tone="rose"
+        ></app-spotlight-card>
+      </div>
+
       <div class="flex flex-wrap items-end gap-3 card p-4">
         <div>
-          <label class="label">Buscar cliente</label>
-          <input class="input" [(ngModel)]="filtroCliente" placeholder="Nombre cliente…"/>
+          <label class="label">Cliente</label>
+          <select class="input" [(ngModel)]="filtroCliente">
+            <option value="">Todos</option>
+            @for (c of clientes(); track c) { <option [value]="c">{{ c }}</option> }
+          </select>
+        </div>
+        <div>
+          <label class="label">Buscar</label>
+          <input class="input" [(ngModel)]="filtroBusqueda" placeholder="Texto libre…"/>
         </div>
         <div>
           <label class="label">Estado</label>
@@ -113,6 +136,7 @@ export class ActivitiesListComponent implements OnInit {
   items = signal<Actividad[]>([]);
   tecnicos = signal<Tecnico[]>([]);
   filtroCliente = '';
+  filtroBusqueda = '';
   filtroEstado: EstadoActividad | '' = '';
   filtroTecnico: string = '';
   filtroDesde = '';
@@ -124,15 +148,41 @@ export class ActivitiesListComponent implements OnInit {
   estados = ESTADOS;
   ESTADO_LABEL = ESTADO_LABEL;
 
+  clientes = computed(() => {
+    const set = new Set<string>();
+    this.items().forEach((a) => a.nombre_cliente && set.add(a.nombre_cliente));
+    return Array.from(set).sort();
+  });
+
+  kpiCoordinadasSinTec = computed(() =>
+    this.items().filter((a) => a.estado === 'coordinado_con_cliente' && !a.tecnico_id).length
+  );
+
+  kpiMenos24hSinTec = computed(() => {
+    const now = Date.now();
+    const lim = now + 24 * 3600 * 1000;
+    return this.items().filter((a) => {
+      if (a.tecnico_id) return false;
+      if (!a.fecha_inicio) return false;
+      if (a.estado === 'completada' || a.estado === 'visita_fallida') return false;
+      const t = new Date(a.fecha_inicio).getTime();
+      return t >= now && t <= lim;
+    }).length;
+  });
+
   filtradas = computed(() => {
-    const q = this.filtroCliente.trim().toLowerCase();
+    const q = this.filtroBusqueda.trim().toLowerCase();
     const desde = this.filtroDesde ? new Date(this.filtroDesde + 'T00:00:00').getTime() : null;
     const hasta = this.filtroHasta ? new Date(this.filtroHasta + 'T23:59:59').getTime() : null;
     const key = this.sortKey();
     const mult = this.sortDir() === 'asc' ? 1 : -1;
 
     const list = this.items().filter((a) => {
-      if (q && !a.nombre_cliente.toLowerCase().includes(q)) return false;
+      if (this.filtroCliente && a.nombre_cliente !== this.filtroCliente) return false;
+      if (q) {
+        const hay = `${a.nombre_cliente ?? ''} ${a.ubicacion ?? ''} ${a.tecnico?.nombre ?? ''} ${a.tecnico?.apellidos ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       if (this.filtroEstado && a.estado !== this.filtroEstado) return false;
       if (this.filtroTecnico === '__sin__' && a.tecnico_id) return false;
       if (this.filtroTecnico && this.filtroTecnico !== '__sin__' && a.tecnico_id !== this.filtroTecnico) return false;

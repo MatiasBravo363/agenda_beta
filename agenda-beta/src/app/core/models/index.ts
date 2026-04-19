@@ -43,6 +43,8 @@ export interface Actividad {
   fecha_inicio: string | null;
   fecha_fin: string | null;
   ubicacion: string | null;
+  ubicacion_lat?: number | null;
+  ubicacion_lng?: number | null;
   descripcion: string | null;
   estado: EstadoActividad;
   parent_activity_id: string | null;

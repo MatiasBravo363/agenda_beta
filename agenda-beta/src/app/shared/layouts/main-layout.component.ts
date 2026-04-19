@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import pkg from '../../../../package.json';
 
 @Component({
   selector: 'app-main-layout',
@@ -9,22 +10,25 @@ import { AuthService } from '../../core/auth/auth.service';
   template: `
     <div class="min-h-screen flex bg-slate-50">
       <aside
-        class="relative border-r border-slate-200 bg-white flex flex-col overflow-hidden transition-[width] duration-300 ease-in-out"
+        class="relative border-r border-slate-200 bg-white flex flex-col transition-[width] duration-300 ease-in-out"
         [style.width]="collapsed() ? '4rem' : '16rem'"
       >
         <button
           type="button"
           (click)="toggle()"
-          class="absolute top-5 -right-3 z-10 w-6 h-6 rounded-full bg-white border border-slate-300 shadow-sm flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-slate-400 transition-colors"
+          class="absolute top-6 -right-3 z-20 w-7 h-7 rounded-full bg-white border border-slate-300 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-brand-400 transition-colors"
           [title]="collapsed() ? 'Expandir' : 'Colapsar'"
         >
-          <span class="text-xs leading-none transition-transform duration-300" [class.rotate-180]="collapsed()">‹</span>
+          <span class="text-sm leading-none transition-transform duration-300" [class.rotate-180]="collapsed()">‹</span>
         </button>
 
-        <div class="p-6 border-b border-slate-200 whitespace-nowrap">
+        <div class="p-6 border-b border-slate-200 whitespace-nowrap overflow-hidden">
           @if (!collapsed()) {
             <div class="text-xl font-extrabold tracking-tight">Agenda<span class="text-brand-600">_BETA</span></div>
-            <div class="text-xs text-slate-500 mt-1">Bermann S.A.</div>
+            <div class="flex items-baseline gap-2 mt-1">
+              <span class="text-xs text-slate-500">Bermann S.A.</span>
+              <span class="text-[10px] font-mono text-slate-400">v{{ version }}</span>
+            </div>
           } @else {
             <div class="text-xl font-extrabold tracking-tight text-center text-brand-600">A</div>
           }
@@ -90,6 +94,7 @@ export class MainLayoutComponent {
   auth = inject(AuthService);
   private router = inject(Router);
   collapsed = signal(this.readPref());
+  version = (pkg as { version: string }).version;
 
   toggle() {
     const next = !this.collapsed();
