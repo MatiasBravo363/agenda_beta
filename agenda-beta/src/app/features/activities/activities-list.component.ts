@@ -7,48 +7,86 @@ import { ActivitiesService } from '../../core/services/activities.service';
 import { Actividad, EstadoActividad, Tecnico } from '../../core/models';
 import { colorDeActividad, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { TechniciansService } from '../../core/services/technicians.service';
+import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
 
-type SortKey = 'id' | 'cliente' | 'tecnico' | 'tipo' | 'estado' | 'inicio' | 'ubicacion';
+type SortKey = 'numero' | 'creador' | 'creado' | 'estado' | 'cliente' | 'tipo' | 'ubicacion';
 type SortDir = 'asc' | 'desc';
+
+interface FiltrosAplicados {
+  cliente: string;
+  busqueda: string;
+  estado: EstadoActividad | '';
+  tecnico: string;
+  desde: string;
+  hasta: string;
+}
+
+const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: '', tecnico: '', desde: '', hasta: '' };
 
 @Component({
   selector: 'app-activities-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe],
+  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent],
   template: `
     <div class="space-y-4">
-      <div class="flex flex-wrap items-end gap-3 card p-4">
-        <div>
-          <label class="label">Buscar cliente</label>
-          <input class="input" [(ngModel)]="filtroCliente" placeholder="Nombre cliente…"/>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-spotlight-card
+          title="Coordinadas sin técnico"
+          [count]="kpiCoordinadasSinTec()"
+          hint="Actividades coordinadas con cliente sin técnico asignado"
+          tone="green"
+        ></app-spotlight-card>
+        <app-spotlight-card
+          title="Sin técnico · faltan <24 hrs"
+          [count]="kpiMenos24hSinTec()"
+          hint="Inminentes (<24h) sin técnico asignado"
+          tone="green"
+        ></app-spotlight-card>
+      </div>
+
+      <div class="card p-4 space-y-3">
+        <div class="flex flex-wrap items-end gap-3">
+          <div>
+            <label class="label">Cliente</label>
+            <select class="input" [(ngModel)]="pendiente.cliente">
+              <option value="">Todos</option>
+              @for (c of clientes(); track c) { <option [value]="c">{{ c }}</option> }
+            </select>
+          </div>
+          <div>
+            <label class="label">Buscar</label>
+            <input class="input" [(ngModel)]="pendiente.busqueda" (keyup.enter)="aplicarFiltros()" placeholder="Texto libre…"/>
+          </div>
+          <div>
+            <label class="label">Estado</label>
+            <select class="input" [(ngModel)]="pendiente.estado">
+              <option value="">Todos</option>
+              @for (e of estados; track e) { <option [value]="e">{{ ESTADO_LABEL[e] }}</option> }
+            </select>
+          </div>
+          <div>
+            <label class="label">Técnico</label>
+            <select class="input" [(ngModel)]="pendiente.tecnico">
+              <option value="">Todos</option>
+              <option value="__sin__">Sin asignar</option>
+              @for (t of tecnicos(); track t.id) {
+                <option [value]="t.id">{{ t.nombre }} {{ t.apellidos }}</option>
+              }
+            </select>
+          </div>
+          <div>
+            <label class="label">Desde</label>
+            <input class="input" type="date" [(ngModel)]="pendiente.desde"/>
+          </div>
+          <div>
+            <label class="label">Hasta</label>
+            <input class="input" type="date" [(ngModel)]="pendiente.hasta"/>
+          </div>
         </div>
-        <div>
-          <label class="label">Estado</label>
-          <select class="input" [(ngModel)]="filtroEstado">
-            <option value="">Todos</option>
-            @for (e of estados; track e) { <option [value]="e">{{ ESTADO_LABEL[e] }}</option> }
-          </select>
-        </div>
-        <div>
-          <label class="label">Técnico</label>
-          <select class="input" [(ngModel)]="filtroTecnico">
-            <option value="">Todos</option>
-            <option value="__sin__">Sin asignar</option>
-            @for (t of tecnicos(); track t.id) {
-              <option [value]="t.id">{{ t.nombre }} {{ t.apellidos }}</option>
-            }
-          </select>
-        </div>
-        <div>
-          <label class="label">Desde</label>
-          <input class="input" type="date" [(ngModel)]="filtroDesde"/>
-        </div>
-        <div>
-          <label class="label">Hasta</label>
-          <input class="input" type="date" [(ngModel)]="filtroHasta"/>
-        </div>
-        <div class="ml-auto flex items-center gap-3">
-          <span class="text-sm text-slate-500">{{ filtradas().length }} resultado(s)</span>
+        <div class="flex items-center gap-3">
+          <button class="btn-primary" (click)="aplicarFiltros()">Buscar</button>
+          <button class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
+          <span class="text-sm text-slate-500 ml-auto">{{ filtradas().length }} resultado(s)</span>
           <button class="btn-secondary" (click)="exportXlsx()">Exportar a Excel</button>
         </div>
       </div>
@@ -57,12 +95,12 @@ type SortDir = 'asc' | 'desc';
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('id')">ID {{ arrow('id') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tecnico')">Técnico {{ arrow('tecnico') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo {{ arrow('tipo') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('numero')">ID {{ arrow('numero') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creador')">Usuario creador {{ arrow('creador') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creado')">Fecha creación {{ arrow('creado') }}</th>
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('estado')">Estado {{ arrow('estado') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('inicio')">Inicio {{ arrow('inicio') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo actividad {{ arrow('tipo') }}</th>
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('ubicacion')">Ubicación {{ arrow('ubicacion') }}</th>
               <th class="w-40"></th>
             </tr>
@@ -70,28 +108,15 @@ type SortDir = 'asc' | 'desc';
           <tbody>
             @for (a of filtradas(); track a.id) {
               <tr class="border-t border-slate-100 hover:bg-slate-50">
-                <td class="px-4 py-2.5 font-mono text-xs text-slate-500" [title]="a.id">{{ a.id.slice(0,8) }}</td>
-                <td class="px-4 py-2.5 font-medium">{{ a.nombre_cliente }}</td>
-                <td class="px-4 py-2.5">
-                  @if (a.tecnico) {
-                    <span class="font-medium">{{ a.tecnico.nombre }} {{ a.tecnico.apellidos }}</span>
-                    <span class="chip ml-2"
-                          [class.bg-brand-100]="a.tecnico.tecnico_bermann"
-                          [class.text-brand-700]="a.tecnico.tecnico_bermann"
-                          [class.bg-slate-100]="!a.tecnico.tecnico_bermann"
-                          [class.text-slate-600]="!a.tecnico.tecnico_bermann">
-                      {{ a.tecnico.tecnico_bermann ? 'Bermann' : a.tecnico.tipo }}
-                    </span>
-                  } @else {
-                    <span class="text-slate-400 italic">Sin asignar</span>
-                  }
-                </td>
-                <td class="px-4 py-2.5 text-slate-600">{{ a.tipo_actividad?.nombre || '-' }}</td>
+                <td class="px-4 py-2.5 font-mono text-xs text-slate-600" [title]="a.id">#{{ a.numero ?? '—' }}</td>
+                <td class="px-4 py-2.5">{{ a.creado_por ? (a.creado_por.nombre + ' ' + a.creado_por.apellido) : '—' }}</td>
+                <td class="px-4 py-2.5 text-slate-600">{{ a.created_at ? (a.created_at | date:'dd-MM-yyyy HH:mm') : '—' }}</td>
                 <td class="px-4 py-2.5">
                   <span class="chip text-white" [style.background]="color(a)">{{ ESTADO_LABEL[a.estado] }}</span>
                 </td>
-                <td class="px-4 py-2.5 text-slate-600">{{ a.fecha_inicio ? (a.fecha_inicio | date:'dd-MM-yyyy HH:mm') : '-' }}</td>
-                <td class="px-4 py-2.5 text-slate-600">{{ a.ubicacion || '-' }}</td>
+                <td class="px-4 py-2.5 font-medium">{{ a.nombre_cliente }}</td>
+                <td class="px-4 py-2.5 text-slate-600">{{ a.tipo_actividad?.nombre || '—' }}</td>
+                <td class="px-4 py-2.5 text-slate-600">{{ a.ubicacion || '—' }}</td>
                 <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                   <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', a.id]">Abrir</a>
                   <button class="text-slate-500 hover:underline" (click)="clone(a)">Clonar</button>
@@ -112,30 +137,55 @@ export class ActivitiesListComponent implements OnInit {
 
   items = signal<Actividad[]>([]);
   tecnicos = signal<Tecnico[]>([]);
-  filtroCliente = '';
-  filtroEstado: EstadoActividad | '' = '';
-  filtroTecnico: string = '';
-  filtroDesde = '';
-  filtroHasta = '';
 
-  sortKey = signal<SortKey>('inicio');
-  sortDir = signal<SortDir>('asc');
+  pendiente: FiltrosAplicados = { ...FILTROS_VACIOS };
+  aplicados = signal<FiltrosAplicados>({ ...FILTROS_VACIOS });
+
+  sortKey = signal<SortKey>('numero');
+  sortDir = signal<SortDir>('desc');
 
   estados = ESTADOS;
   ESTADO_LABEL = ESTADO_LABEL;
 
+  clientes = computed(() => {
+    const set = new Set<string>();
+    this.items().forEach((a) => a.nombre_cliente && set.add(a.nombre_cliente));
+    return Array.from(set).sort();
+  });
+
+  kpiCoordinadasSinTec = computed(() =>
+    this.items().filter((a) => a.estado === 'coordinado_con_cliente' && !a.tecnico_id).length
+  );
+
+  kpiMenos24hSinTec = computed(() => {
+    const now = Date.now();
+    const lim = now + 24 * 3600 * 1000;
+    return this.items().filter((a) => {
+      if (a.tecnico_id) return false;
+      if (!a.fecha_inicio) return false;
+      if (a.estado === 'completada' || a.estado === 'visita_fallida') return false;
+      const t = new Date(a.fecha_inicio).getTime();
+      return t >= now && t <= lim;
+    }).length;
+  });
+
   filtradas = computed(() => {
-    const q = this.filtroCliente.trim().toLowerCase();
-    const desde = this.filtroDesde ? new Date(this.filtroDesde + 'T00:00:00').getTime() : null;
-    const hasta = this.filtroHasta ? new Date(this.filtroHasta + 'T23:59:59').getTime() : null;
+    const f = this.aplicados();
+    const q = f.busqueda.trim().toLowerCase();
+    const desde = f.desde ? new Date(f.desde + 'T00:00:00').getTime() : null;
+    const hasta = f.hasta ? new Date(f.hasta + 'T23:59:59').getTime() : null;
     const key = this.sortKey();
     const mult = this.sortDir() === 'asc' ? 1 : -1;
 
     const list = this.items().filter((a) => {
-      if (q && !a.nombre_cliente.toLowerCase().includes(q)) return false;
-      if (this.filtroEstado && a.estado !== this.filtroEstado) return false;
-      if (this.filtroTecnico === '__sin__' && a.tecnico_id) return false;
-      if (this.filtroTecnico && this.filtroTecnico !== '__sin__' && a.tecnico_id !== this.filtroTecnico) return false;
+      if (f.cliente && a.nombre_cliente !== f.cliente) return false;
+      if (q) {
+        const hay = `${a.nombre_cliente ?? ''} ${a.ubicacion ?? ''} ${a.tecnico?.nombre ?? ''} ${a.tecnico?.apellidos ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (f.estado && a.estado !== f.estado) return false;
+      if (f.tecnico === '__sin__' && a.tecnico_id) return false;
+      if (f.tecnico && f.tecnico !== '__sin__' && a.tecnico_id !== f.tecnico) return false;
       if (desde != null || hasta != null) {
         if (!a.fecha_inicio) return false;
         const t = new Date(a.fecha_inicio).getTime();
@@ -156,12 +206,12 @@ export class ActivitiesListComponent implements OnInit {
 
   private sortValue(a: Actividad, key: SortKey): string | number {
     switch (key) {
-      case 'id': return a.id;
-      case 'cliente': return a.nombre_cliente ?? '';
-      case 'tecnico': return a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : '';
-      case 'tipo': return a.tipo_actividad?.nombre ?? '';
+      case 'numero': return a.numero ?? 0;
+      case 'creador': return a.creado_por ? `${a.creado_por.nombre} ${a.creado_por.apellido}` : '';
+      case 'creado': return a.created_at ? new Date(a.created_at).getTime() : 0;
       case 'estado': return ESTADO_LABEL[a.estado] ?? a.estado;
-      case 'inicio': return a.fecha_inicio ? new Date(a.fecha_inicio).getTime() : 0;
+      case 'cliente': return a.nombre_cliente ?? '';
+      case 'tipo': return a.tipo_actividad?.nombre ?? '';
       case 'ubicacion': return a.ubicacion ?? '';
     }
   }
@@ -180,6 +230,13 @@ export class ActivitiesListComponent implements OnInit {
     return this.sortDir() === 'asc' ? '▲' : '▼';
   }
 
+  aplicarFiltros() { this.aplicados.set({ ...this.pendiente }); }
+
+  limpiarFiltros() {
+    this.pendiente = { ...FILTROS_VACIOS };
+    this.aplicados.set({ ...FILTROS_VACIOS });
+  }
+
   async ngOnInit() {
     await Promise.all([this.reload(), this.loadTecnicos()]);
   }
@@ -196,14 +253,16 @@ export class ActivitiesListComponent implements OnInit {
 
   exportXlsx() {
     const rows = this.filtradas().map((a) => ({
-      ID: a.id,
-      Cliente: a.nombre_cliente,
-      Técnico: a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : 'Sin asignar',
-      Tipo: a.tipo_actividad?.nombre ?? '',
+      ID: a.numero ?? '',
+      'Usuario creador': a.creado_por ? `${a.creado_por.nombre} ${a.creado_por.apellido}` : '',
+      'Fecha creación': a.created_at ? this.fmt(a.created_at) : '',
       Estado: ESTADO_LABEL[a.estado] ?? a.estado,
+      Cliente: a.nombre_cliente,
+      'Tipo actividad': a.tipo_actividad?.nombre ?? '',
+      Ubicación: a.ubicacion ?? '',
+      Técnico: a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : 'Sin asignar',
       Inicio: a.fecha_inicio ? this.fmt(a.fecha_inicio) : '',
       Fin: a.fecha_fin ? this.fmt(a.fecha_fin) : '',
-      Ubicación: a.ubicacion ?? '',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();

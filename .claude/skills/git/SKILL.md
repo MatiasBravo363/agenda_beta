@@ -46,8 +46,19 @@ Corré `git status --short` + `git branch --show-current` y reportá: rama actua
 1. Verificá identidad.
 2. Si hay archivos sensibles en `git status`, aborta y pedí confirmación.
 3. `git add` de paths relevantes (no uses `-A` a menos que el usuario lo pida — preferí agregar archivos por nombre).
-4. Commit con HEREDOC incluyendo el trailer Co-Authored-By.
-5. Reportá `git status` post-commit.
+4. **Armá el cuerpo del commit desde los SOPs de iteración relacionados**:
+   - Buscá los archivos `SOP/iteraciones/*.md` modificados o creados en el stage (`git diff --cached --name-only -- 'SOP/iteraciones/*.md'`).
+   - De cada uno, extraé el **requerimiento** y la lista de **criterios de aceptación** (sección `## Criterios de aceptación`, bullets `- [ ]`).
+   - Agrupá el cuerpo por iteración con un subtítulo del archivo (sin extensión) y los bullets como lista. Ejemplo:
+     ```
+     ## 2026-04-19-sidebar-encola
+     - Botón toggle con animación 300ms.
+     - Colapsada: w-16 íconos; expandida: w-64.
+     - Persistencia en localStorage.
+     ```
+   - Si no hay SOP en el stage pero hay cambios de código que pertenecen a una iteración previa, preguntá al usuario cuál SOP describir o usá el mensaje literal que él pasó.
+5. Commit con HEREDOC: title = `<mensaje>`, body = sección de SOPs + trailer `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
+6. Reportá `git status` post-commit.
 
 ### `/git push`
 1. Verificá la rama actual.

@@ -37,12 +37,16 @@ export interface TipoActividad {
 
 export interface Actividad {
   id: string;
+  numero?: number;
+  cantidad_pendiente?: number;
   nombre_cliente: string;
   tipo_actividad_id: string | null;
   tecnico_id: string | null;
   fecha_inicio: string | null;
   fecha_fin: string | null;
   ubicacion: string | null;
+  ubicacion_lat?: number | null;
+  ubicacion_lng?: number | null;
   descripcion: string | null;
   estado: EstadoActividad;
   parent_activity_id: string | null;
@@ -51,6 +55,7 @@ export interface Actividad {
   updated_at?: string;
   tecnico?: Tecnico | null;
   tipo_actividad?: TipoActividad | null;
+  creado_por?: Usuario | null;
 }
 
 export interface ActividadHistorial {

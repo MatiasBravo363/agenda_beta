@@ -6,11 +6,12 @@ import { TechniciansService } from '../../core/services/technicians.service';
 import { ActivityTypesService } from '../../core/services/activity-types.service';
 import { Actividad, Tecnico, TipoActividad } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeActividad } from '../../core/utils/estado.util';
+import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 
 @Component({
   selector: 'app-activity-form',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, DireccionAutocompleteComponent],
   template: `
     <div class="max-w-3xl mx-auto space-y-6">
       <a routerLink="/actividades" class="text-sm text-slate-500 hover:text-slate-700">← Volver a actividades</a>
@@ -58,7 +59,11 @@ import { ESTADO_LABEL, ESTADOS, colorDeActividad } from '../../core/utils/estado
 
             <div>
               <label class="label">Ubicación</label>
-              <input class="input" [(ngModel)]="model()!.ubicacion" name="ubicacion"/>
+              <app-direccion-autocomplete
+                [value]="model()!.ubicacion || ''"
+                (valueChange)="model()!.ubicacion = $event"
+                (selected)="onDireccionSeleccionada($event)"
+              ></app-direccion-autocomplete>
             </div>
 
             <div class="col-span-2 rounded-md border border-slate-200 p-4 space-y-3">
@@ -227,6 +232,14 @@ export class ActivityFormComponent implements OnInit {
       const diff = Math.round((new Date(m.fecha_fin).getTime() - new Date(m.fecha_inicio).getTime()) / 60000);
       if (diff > 0) this.duracionMin.set(diff);
     }
+  }
+
+  onDireccionSeleccionada(d: DireccionSeleccionada) {
+    const m = this.model();
+    if (!m) return;
+    m.ubicacion = d.display_name;
+    m.ubicacion_lat = d.lat;
+    m.ubicacion_lng = d.lng;
   }
 
   async save() {
