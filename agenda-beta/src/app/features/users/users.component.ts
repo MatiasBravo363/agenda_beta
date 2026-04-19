@@ -4,7 +4,7 @@ import { UsersService } from '../../core/services/users.service';
 import { Usuario } from '../../core/models';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
-type SortKey = 'nombre' | 'email' | 'created_at';
+type SortKey = 'nombre' | 'email' | 'created_at' | 'last_sign_in_at';
 type SortDir = 'asc' | 'desc';
 
 @Component({
@@ -95,6 +95,9 @@ type SortDir = 'asc' | 'desc';
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('created_at')">
                 Creado {{ sortArrow('created_at') }}
               </th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('last_sign_in_at')">
+                Última sesión {{ sortArrow('last_sign_in_at') }}
+              </th>
               <th class="w-32"></th>
             </tr>
           </thead>
@@ -117,12 +120,13 @@ type SortDir = 'asc' | 'desc';
                   </button>
                 </td>
                 <td class="px-4 py-2.5 text-slate-600">{{ formatDate(u.created_at) }}</td>
+                <td class="px-4 py-2.5 text-slate-600">{{ formatDateTime(u.last_sign_in_at) }}</td>
                 <td class="px-4 py-2.5 text-right">
                   <button class="text-brand-600 hover:underline" (click)="edit(u)">Editar</button>
                 </td>
               </tr>
             } @empty {
-              <tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Sin registros</td></tr>
+              <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">Sin registros</td></tr>
             }
           </tbody>
         </table>
@@ -187,6 +191,13 @@ export class UsersComponent implements OnInit {
     if (!iso) return '';
     const d = new Date(iso);
     return d.toLocaleDateString('es-CL', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  }
+
+  formatDateTime(iso?: string | null): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    const pad = (n: number) => `${n}`.padStart(2, '0');
+    return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   edit(u: Usuario) { this.editing.set({ ...u }); }

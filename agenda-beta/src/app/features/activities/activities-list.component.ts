@@ -2,11 +2,14 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import * as XLSX from 'xlsx';
 import { ActivitiesService } from '../../core/services/activities.service';
-import { Actividad, EstadoActividad } from '../../core/models';
+import { Actividad, EstadoActividad, Tecnico } from '../../core/models';
 import { colorDeActividad, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { TechniciansService } from '../../core/services/technicians.service';
-import { Tecnico } from '../../core/models';
+
+type SortKey = 'id' | 'cliente' | 'tecnico' | 'tipo' | 'estado' | 'inicio' | 'ubicacion';
+type SortDir = 'asc' | 'desc';
 
 @Component({
   selector: 'app-activities-list',
@@ -36,30 +39,40 @@ import { Tecnico } from '../../core/models';
             }
           </select>
         </div>
-        <div class="ml-auto text-sm text-slate-500">{{ filtradas().length }} resultado(s)</div>
+        <div>
+          <label class="label">Desde</label>
+          <input class="input" type="date" [(ngModel)]="filtroDesde"/>
+        </div>
+        <div>
+          <label class="label">Hasta</label>
+          <input class="input" type="date" [(ngModel)]="filtroHasta"/>
+        </div>
+        <div class="ml-auto flex items-center gap-3">
+          <span class="text-sm text-slate-500">{{ filtradas().length }} resultado(s)</span>
+          <button class="btn-secondary" (click)="exportXlsx()">Exportar a Excel</button>
+        </div>
       </div>
 
       <div class="card overflow-hidden">
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
-              <th class="text-left px-4 py-3 w-2">Estado</th>
-              <th class="text-left px-4 py-3">Cliente</th>
-              <th class="text-left px-4 py-3">Técnico</th>
-              <th class="text-left px-4 py-3">Tipo</th>
-              <th class="text-left px-4 py-3">Inicio</th>
-              <th class="text-left px-4 py-3">Ubicación</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('id')">ID {{ arrow('id') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tecnico')">Técnico {{ arrow('tecnico') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo {{ arrow('tipo') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('estado')">Estado {{ arrow('estado') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('inicio')">Inicio {{ arrow('inicio') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('ubicacion')">Ubicación {{ arrow('ubicacion') }}</th>
               <th class="w-40"></th>
             </tr>
           </thead>
           <tbody>
             @for (a of filtradas(); track a.id) {
               <tr class="border-t border-slate-100 hover:bg-slate-50">
-                <td class="px-4 py-3">
-                  <span class="inline-block w-3 h-3 rounded-full" [style.background]="color(a)" [title]="ESTADO_LABEL[a.estado]"></span>
-                </td>
-                <td class="px-4 py-3 font-medium">{{ a.nombre_cliente }}</td>
-                <td class="px-4 py-3">
+                <td class="px-4 py-2.5 font-mono text-xs text-slate-500" [title]="a.id">{{ a.id.slice(0,8) }}</td>
+                <td class="px-4 py-2.5 font-medium">{{ a.nombre_cliente }}</td>
+                <td class="px-4 py-2.5">
                   @if (a.tecnico) {
                     <span class="font-medium">{{ a.tecnico.nombre }} {{ a.tecnico.apellidos }}</span>
                     <span class="chip ml-2"
@@ -73,16 +86,19 @@ import { Tecnico } from '../../core/models';
                     <span class="text-slate-400 italic">Sin asignar</span>
                   }
                 </td>
-                <td class="px-4 py-3 text-slate-600">{{ a.tipo_actividad?.nombre || '-' }}</td>
-                <td class="px-4 py-3 text-slate-600">{{ a.fecha_inicio ? (a.fecha_inicio | date:'dd-MM-yyyy HH:mm') : '-' }}</td>
-                <td class="px-4 py-3 text-slate-600">{{ a.ubicacion || '-' }}</td>
-                <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                <td class="px-4 py-2.5 text-slate-600">{{ a.tipo_actividad?.nombre || '-' }}</td>
+                <td class="px-4 py-2.5">
+                  <span class="chip text-white" [style.background]="color(a)">{{ ESTADO_LABEL[a.estado] }}</span>
+                </td>
+                <td class="px-4 py-2.5 text-slate-600">{{ a.fecha_inicio ? (a.fecha_inicio | date:'dd-MM-yyyy HH:mm') : '-' }}</td>
+                <td class="px-4 py-2.5 text-slate-600">{{ a.ubicacion || '-' }}</td>
+                <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                   <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', a.id]">Abrir</a>
                   <button class="text-slate-500 hover:underline" (click)="clone(a)">Clonar</button>
                 </td>
               </tr>
             } @empty {
-              <tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">Sin actividades</td></tr>
+              <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">Sin actividades</td></tr>
             }
           </tbody>
         </table>
@@ -99,20 +115,70 @@ export class ActivitiesListComponent implements OnInit {
   filtroCliente = '';
   filtroEstado: EstadoActividad | '' = '';
   filtroTecnico: string = '';
+  filtroDesde = '';
+  filtroHasta = '';
+
+  sortKey = signal<SortKey>('inicio');
+  sortDir = signal<SortDir>('asc');
 
   estados = ESTADOS;
   ESTADO_LABEL = ESTADO_LABEL;
 
   filtradas = computed(() => {
     const q = this.filtroCliente.trim().toLowerCase();
-    return this.items().filter((a) => {
+    const desde = this.filtroDesde ? new Date(this.filtroDesde + 'T00:00:00').getTime() : null;
+    const hasta = this.filtroHasta ? new Date(this.filtroHasta + 'T23:59:59').getTime() : null;
+    const key = this.sortKey();
+    const mult = this.sortDir() === 'asc' ? 1 : -1;
+
+    const list = this.items().filter((a) => {
       if (q && !a.nombre_cliente.toLowerCase().includes(q)) return false;
       if (this.filtroEstado && a.estado !== this.filtroEstado) return false;
       if (this.filtroTecnico === '__sin__' && a.tecnico_id) return false;
       if (this.filtroTecnico && this.filtroTecnico !== '__sin__' && a.tecnico_id !== this.filtroTecnico) return false;
+      if (desde != null || hasta != null) {
+        if (!a.fecha_inicio) return false;
+        const t = new Date(a.fecha_inicio).getTime();
+        if (desde != null && t < desde) return false;
+        if (hasta != null && t > hasta) return false;
+      }
       return true;
     });
+
+    return list.sort((x, y) => {
+      const av = this.sortValue(x, key);
+      const bv = this.sortValue(y, key);
+      if (av < bv) return -1 * mult;
+      if (av > bv) return 1 * mult;
+      return 0;
+    });
   });
+
+  private sortValue(a: Actividad, key: SortKey): string | number {
+    switch (key) {
+      case 'id': return a.id;
+      case 'cliente': return a.nombre_cliente ?? '';
+      case 'tecnico': return a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : '';
+      case 'tipo': return a.tipo_actividad?.nombre ?? '';
+      case 'estado': return ESTADO_LABEL[a.estado] ?? a.estado;
+      case 'inicio': return a.fecha_inicio ? new Date(a.fecha_inicio).getTime() : 0;
+      case 'ubicacion': return a.ubicacion ?? '';
+    }
+  }
+
+  toggleSort(k: SortKey) {
+    if (this.sortKey() === k) {
+      this.sortDir.set(this.sortDir() === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortKey.set(k);
+      this.sortDir.set('asc');
+    }
+  }
+
+  arrow(k: SortKey) {
+    if (this.sortKey() !== k) return '';
+    return this.sortDir() === 'asc' ? '▲' : '▼';
+  }
 
   async ngOnInit() {
     await Promise.all([this.reload(), this.loadTecnicos()]);
@@ -126,5 +192,29 @@ export class ActivitiesListComponent implements OnInit {
     if (!confirm(`¿Clonar actividad de "${a.nombre_cliente}"?`)) return;
     await this.svc.clone(a.id);
     await this.reload();
+  }
+
+  exportXlsx() {
+    const rows = this.filtradas().map((a) => ({
+      ID: a.id,
+      Cliente: a.nombre_cliente,
+      Técnico: a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : 'Sin asignar',
+      Tipo: a.tipo_actividad?.nombre ?? '',
+      Estado: ESTADO_LABEL[a.estado] ?? a.estado,
+      Inicio: a.fecha_inicio ? this.fmt(a.fecha_inicio) : '',
+      Fin: a.fecha_fin ? this.fmt(a.fecha_fin) : '',
+      Ubicación: a.ubicacion ?? '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `actividades-${stamp}.xlsx`);
+  }
+
+  private fmt(iso: string): string {
+    const d = new Date(iso);
+    const pad = (n: number) => `${n}`.padStart(2, '0');
+    return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 }

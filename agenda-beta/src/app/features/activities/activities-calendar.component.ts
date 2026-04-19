@@ -175,9 +175,17 @@ export class ActivitiesCalendarComponent implements OnInit {
       .map((a) => {
         const color = colorDeActividad(a, a.tecnico);
         const tecnico = a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : 'Sin asignar';
+        const pad = (n: number) => `${n}`.padStart(2, '0');
+        const hhmm = (iso: string) => {
+          const d = new Date(iso);
+          return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        };
+        const rango = a.fecha_fin
+          ? `${hhmm(a.fecha_inicio!)}-${hhmm(a.fecha_fin)}`
+          : hhmm(a.fecha_inicio!);
         return {
           id: a.id,
-          title: `${a.nombre_cliente} · ${tecnico}`,
+          title: `${rango} · ${a.nombre_cliente} · ${tecnico}`,
           start: a.fecha_inicio!,
           end: a.fecha_fin ?? undefined,
           backgroundColor: color,

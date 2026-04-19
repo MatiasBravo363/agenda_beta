@@ -14,6 +14,7 @@ export interface Usuario {
   email?: string;
   activo: boolean;
   created_at?: string;
+  last_sign_in_at?: string | null;
 }
 
 export interface Tecnico {

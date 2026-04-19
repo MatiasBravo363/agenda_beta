@@ -99,18 +99,7 @@ export class ActivitiesService {
     return this.create(payload);
   }
 
-  async changeStatus(id: string, estado_nuevo: EstadoActividad, comentario?: string): Promise<Actividad> {
-    const actual = await this.getById(id);
-    if (!actual) throw new Error('Actividad no encontrada');
-    const updated = await this.update(id, { estado: estado_nuevo });
-    const { data: userData } = await this.sb.client.auth.getUser();
-    await this.sb.client.from('actividades_historial').insert({
-      actividad_id: id,
-      estado_anterior: actual.estado,
-      estado_nuevo,
-      comentario: comentario ?? null,
-      usuario_id: userData.user?.id ?? null,
-    });
-    return updated;
+  async changeStatus(id: string, estado_nuevo: EstadoActividad): Promise<Actividad> {
+    return this.update(id, { estado: estado_nuevo });
   }
 }
