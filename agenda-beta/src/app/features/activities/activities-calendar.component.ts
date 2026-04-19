@@ -28,6 +28,30 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
   selector: 'app-activities-calendar',
   standalone: true,
   imports: [FullCalendarModule, FormsModule, DireccionAutocompleteComponent, SpotlightCardComponent],
+  styles: [`
+    @keyframes heartbeat-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
+      35% { box-shadow: 0 0 0 7px rgba(220, 38, 38, 0); }
+      50% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.45); }
+      65% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+    }
+    :host ::ng-deep .fc-event.pulse-coordinado {
+      animation: heartbeat-pulse 1.4s ease-out infinite;
+      border-radius: 6px;
+    }
+    :host ::ng-deep .evt-hora {
+      font-size: 0.65rem;
+      opacity: 0.85;
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    :host ::ng-deep .evt-linea {
+      font-size: 0.75rem;
+      line-height: 1.1;
+      font-weight: 500;
+    }
+    :host ::ng-deep .evt-linea.tenue { font-weight: 400; opacity: 0.9; }
+  `],
   template: `
     <div class="space-y-4">
       <!-- KPIs -->
@@ -36,13 +60,13 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
           title="Coordinadas sin técnico"
           [count]="kpiCoordinadasSinTec()"
           hint="Actividades coordinadas con cliente que aún no tienen técnico asignado"
-          tone="indigo"
+          tone="green"
         ></app-spotlight-card>
         <app-spotlight-card
           title="Sin técnico · faltan <24 hrs"
           [count]="kpiMenos24hSinTec()"
           hint="Inminentes (<24h) sin técnico asignado"
-          tone="rose"
+          tone="green"
         ></app-spotlight-card>
       </div>
 
@@ -99,8 +123,8 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
                 <div class="flex items-center justify-between gap-2">
                   <div class="font-medium text-sm truncate flex items-center gap-2">
                     {{ a.nombre_cliente }}
-                    @if (counterOf(a.id) > 1) {
-                      <span class="chip bg-brand-100 text-brand-700 text-[10px]">×{{ counterOf(a.id) }}</span>
+                    @if ((a.cantidad_pendiente ?? 1) > 1) {
+                      <span class="chip bg-brand-100 text-brand-700 text-[10px]">×{{ a.cantidad_pendiente }}</span>
                     }
                   </div>
                   <div class="text-xs text-slate-500 truncate">
@@ -289,8 +313,6 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   dropDuracion = 60;
   confirming = signal(false);
 
-  counters = signal<Map<string, number>>(new Map());
-
   multPending = signal<Actividad | null>(null);
   multN = 2;
 
@@ -359,7 +381,31 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     eventResize: (arg) => this.onEventChange(arg),
     select: (arg: DateSelectArg) => this.onRangeSelect(arg),
     drop: (info) => this.onExternalDrop(info.date, info.draggedEl),
+    eventClassNames: (arg) => {
+      const estado = arg.event.extendedProps['estadoRaw'];
+      return estado === 'coordinado_con_cliente' ? ['pulse-coordinado'] : [];
+    },
+    eventContent: (arg) => {
+      const cliente = arg.event.extendedProps['cliente'] ?? '';
+      const tecnico = arg.event.extendedProps['tecnico'] ?? '';
+      const hora = arg.timeText || '';
+      return {
+        html: `
+          <div class="px-1">
+            ${hora ? `<div class="evt-hora">${hora}</div>` : ''}
+            <div class="evt-linea">${this.escapeHtml(cliente)}</div>
+            <div class="evt-linea tenue">${this.escapeHtml(tecnico)}</div>
+          </div>
+        `,
+      };
+    },
   }));
+
+  private escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string)
+    );
+  }
 
   async ngOnInit() { await this.reloadAll(); }
 
@@ -385,8 +431,6 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   }
 
   colorDe(a: Actividad) { return colorDeActividad(a, a.tecnico); }
-
-  counterOf(id: string) { return this.counters().get(id) ?? 1; }
 
   toggleCreate() {
     this.showCreate.set(!this.showCreate());
@@ -433,18 +477,21 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   openMultiplicar(a: Actividad, ev: Event) {
     ev.stopPropagation();
     this.multPending.set(a);
-    this.multN = Math.max(2, this.counterOf(a.id));
+    this.multN = Math.max(2, a.cantidad_pendiente ?? 1);
   }
 
-  confirmMultiplicar() {
+  async confirmMultiplicar() {
     const a = this.multPending();
     if (!a) return;
     const n = Math.max(1, Math.floor(this.multN));
-    const map = new Map(this.counters());
-    if (n <= 1) map.delete(a.id); else map.set(a.id, n);
-    this.counters.set(map);
-    this.multPending.set(null);
-    this.flash('ok', n > 1 ? `Multiplicado ×${n}.` : 'Multiplicador removido.');
+    try {
+      await this.svc.setCantidadPendiente(a.id, n);
+      await this.reloadAll();
+      this.multPending.set(null);
+      this.flash('ok', n > 1 ? `Multiplicado ×${n}.` : 'Multiplicador removido.');
+    } catch (e: any) {
+      this.flash('err', e?.message ?? 'No se pudo actualizar.');
+    }
   }
 
   private onExternalDrop(date: Date, el: HTMLElement) {
@@ -479,7 +526,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     try {
       const start = p.start;
       const end = new Date(start.getTime() + this.dropDuracion * 60000);
-      const counter = this.counters().get(p.actividad.id) ?? 1;
+      const counter = p.actividad.cantidad_pendiente ?? 1;
 
       if (counter > 1) {
         await this.svc.create({
@@ -494,21 +541,17 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
           fecha_fin: end.toISOString(),
           estado: this.dropEstado,
           parent_activity_id: p.actividad.id,
+          cantidad_pendiente: 1,
         });
-        const map = new Map(this.counters());
-        const newVal = counter - 1;
-        if (newVal <= 1) map.delete(p.actividad.id); else map.set(p.actividad.id, newVal);
-        this.counters.set(map);
+        await this.svc.setCantidadPendiente(p.actividad.id, counter - 1);
       } else {
         await this.svc.update(p.actividad.id, {
           fecha_inicio: start.toISOString(),
           fecha_fin: end.toISOString(),
           estado: this.dropEstado,
           tecnico_id: this.dropTecnicoId,
+          cantidad_pendiente: 1,
         });
-        const map = new Map(this.counters());
-        map.delete(p.actividad.id);
-        this.counters.set(map);
       }
 
       await this.reloadAll();
@@ -552,21 +595,20 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
       .map((a) => {
         const color = colorDeActividad(a, a.tecnico);
         const tecnico = a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : 'Sin asignar';
-        const pad = (n: number) => `${n}`.padStart(2, '0');
-        const hhmm = (iso: string) => {
-          const d = new Date(iso);
-          return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-        };
-        const rango = a.fecha_fin ? `${hhmm(a.fecha_inicio!)}-${hhmm(a.fecha_fin)}` : hhmm(a.fecha_inicio!);
         return {
           id: a.id,
-          title: `${rango} · ${a.nombre_cliente} · ${tecnico}`,
+          title: `${a.nombre_cliente} · ${tecnico}`,
           start: a.fecha_inicio!,
           end: a.fecha_fin ?? undefined,
           backgroundColor: color,
           borderColor: color,
           textColor: '#fff',
-          extendedProps: { estado: ESTADO_LABEL[a.estado], tecnico },
+          extendedProps: {
+            estado: ESTADO_LABEL[a.estado],
+            estadoRaw: a.estado,
+            cliente: a.nombre_cliente,
+            tecnico,
+          },
         };
       });
   }

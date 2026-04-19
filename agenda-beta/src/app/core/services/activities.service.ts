@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { SupabaseService } from '../supabase/supabase.service';
 import { Actividad, EstadoActividad } from '../models';
 
-const SELECT_WITH_REL = '*, tecnico:tecnicos(*), tipo_actividad:tipos_actividad(*)';
+const SELECT_WITH_REL = '*, tecnico:tecnicos(*), tipo_actividad:tipos_actividad(*), creado_por:usuarios!created_by(*)';
 
 const UPDATABLE_FIELDS: (keyof Actividad)[] = [
   'nombre_cliente',
@@ -16,6 +16,7 @@ const UPDATABLE_FIELDS: (keyof Actividad)[] = [
   'descripcion',
   'estado',
   'parent_activity_id',
+  'cantidad_pendiente',
 ];
 
 function toPayload(src: Partial<Actividad>): Partial<Actividad> {
@@ -38,6 +39,14 @@ export class ActivitiesService {
       .order('fecha_inicio', { ascending: true, nullsFirst: false });
     if (error) throw error;
     return (data ?? []) as unknown as Actividad[];
+  }
+
+  async setCantidadPendiente(id: string, cantidad: number): Promise<void> {
+    const { error } = await this.sb.client
+      .from(this.table)
+      .update({ cantidad_pendiente: cantidad })
+      .eq('id', id);
+    if (error) throw error;
   }
 
   async getById(id: string): Promise<Actividad | null> {

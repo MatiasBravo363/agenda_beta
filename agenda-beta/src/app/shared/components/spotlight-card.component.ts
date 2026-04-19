@@ -1,6 +1,6 @@
 import { Component, ElementRef, HostListener, Input, inject } from '@angular/core';
 
-type Tone = 'indigo' | 'amber' | 'rose';
+type Tone = 'indigo' | 'amber' | 'rose' | 'green';
 
 @Component({
   selector: 'app-spotlight-card',
@@ -44,6 +44,7 @@ export class SpotlightCardComponent {
     switch (this.tone) {
       case 'amber': return '#b45309';
       case 'rose': return '#be123c';
+      case 'green': return '#2f8f34';
       default: return '#4338ca';
     }
   }
@@ -52,6 +53,7 @@ export class SpotlightCardComponent {
     switch (this.tone) {
       case 'amber': return 'rgba(245, 158, 11, 0.28)';
       case 'rose': return 'rgba(244, 63, 94, 0.28)';
+      case 'green': return 'rgba(92, 203, 95, 0.38)';
       default: return 'rgba(99, 102, 241, 0.28)';
     }
   }

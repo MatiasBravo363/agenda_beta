@@ -1,16 +1,38 @@
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+interface NominatimAddress {
+  road?: string;
+  house_number?: string;
+  neighbourhood?: string;
+  suburb?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+}
+
 interface NominatimResult {
   display_name: string;
   lat: string;
   lon: string;
+  address?: NominatimAddress;
 }
 
 export interface DireccionSeleccionada {
   display_name: string;
   lat: number;
   lng: number;
+}
+
+function shortAddress(r: NominatimResult): string {
+  const a = r.address ?? {};
+  const comuna = a.city ?? a.town ?? a.village ?? a.municipality ?? a.suburb ?? '';
+  const calle = a.road ?? '';
+  const numero = a.house_number ?? '';
+  const linea = [calle, numero].filter(Boolean).join(' ');
+  const partes = [linea, comuna].filter(Boolean);
+  return partes.length ? partes.join(', ') : r.display_name.split(',').slice(0, 2).join(',').trim();
 }
 
 @Component({
@@ -37,7 +59,8 @@ export interface DireccionSeleccionada {
             <button type="button"
                     class="w-full text-left px-3 py-2 text-sm hover:bg-brand-50 border-b border-slate-100 last:border-b-0"
                     (mousedown)="select(s)">
-              {{ s.display_name }}
+              <div class="font-medium">{{ shortLabel(s) }}</div>
+              <div class="text-xs text-slate-400 truncate">{{ s.display_name }}</div>
             </button>
           }
         </div>
@@ -83,13 +106,16 @@ export class DireccionAutocompleteComponent {
     }
   }
 
+  shortLabel(s: NominatimResult) { return shortAddress(s); }
+
   select(s: NominatimResult) {
-    this.value = s.display_name;
+    const short = shortAddress(s);
+    this.value = short;
     this.open.set(false);
     this.suggestions.set([]);
     this.valueChange.emit(this.value);
     this.selected.emit({
-      display_name: s.display_name,
+      display_name: short,
       lat: parseFloat(s.lat),
       lng: parseFloat(s.lon),
     });
