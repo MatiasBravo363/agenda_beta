@@ -26,6 +26,7 @@ export class SpotlightCardComponent {
   @Input() count = 0;
   @Input() hint = '';
   @Input() tone: Tone = 'indigo';
+  @Input() customColor?: string;
 
   private host = inject(ElementRef<HTMLElement>);
   private mx = 50;
@@ -41,6 +42,7 @@ export class SpotlightCardComponent {
   }
 
   accentColor(): string {
+    if (this.customColor) return this.customColor;
     switch (this.tone) {
       case 'amber': return '#b45309';
       case 'rose': return '#be123c';
@@ -50,12 +52,22 @@ export class SpotlightCardComponent {
   }
 
   private glowColor(): string {
+    if (this.customColor) return this.hexToRgba(this.customColor, 0.32);
     switch (this.tone) {
       case 'amber': return 'rgba(245, 158, 11, 0.28)';
       case 'rose': return 'rgba(244, 63, 94, 0.28)';
       case 'green': return 'rgba(92, 203, 95, 0.38)';
       default: return 'rgba(99, 102, 241, 0.28)';
     }
+  }
+
+  private hexToRgba(hex: string, alpha: number): string {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   bgStyle(): string {

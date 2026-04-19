@@ -35,6 +35,12 @@ import pkg from '../../../../package.json';
         </div>
 
         <nav class="flex-1 p-2 space-y-1 text-sm">
+          <a routerLink="/dashboard" routerLinkActive="bg-brand-50 text-brand-700"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 whitespace-nowrap"
+             [title]="collapsed() ? 'Dashboard' : ''">
+            <span class="text-lg">📊</span>
+            @if (!collapsed()) { <span>Dashboard</span> }
+          </a>
           <a routerLink="/actividades" routerLinkActive="bg-brand-50 text-brand-700"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 whitespace-nowrap"
              [title]="collapsed() ? 'Actividades' : ''">

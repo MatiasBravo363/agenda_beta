@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import * as XLSX from 'xlsx';
 import { ActivitiesService } from '../../core/services/activities.service';
 import { Actividad, EstadoActividad, Tecnico } from '../../core/models';
-import { colorDeActividad, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
+import { colorDeActividad, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
 
@@ -29,19 +29,14 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
   imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent],
   template: `
     <div class="space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <app-spotlight-card
-          title="Coordinadas sin técnico"
-          [count]="kpiCoordinadasSinTec()"
-          hint="Actividades coordinadas con cliente sin técnico asignado"
-          tone="green"
-        ></app-spotlight-card>
-        <app-spotlight-card
-          title="Sin técnico · faltan <24 hrs"
-          [count]="kpiMenos24hSinTec()"
-          hint="Inminentes (<24h) sin técnico asignado"
-          tone="green"
-        ></app-spotlight-card>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        @for (e of estados; track e) {
+          <app-spotlight-card
+            [title]="ESTADO_LABEL[e]"
+            [count]="kpiPorEstado()[e]"
+            [customColor]="colorDeEstado(e)"
+          ></app-spotlight-card>
+        }
       </div>
 
       <div class="card p-4 space-y-3">
@@ -153,21 +148,16 @@ export class ActivitiesListComponent implements OnInit {
     return Array.from(set).sort();
   });
 
-  kpiCoordinadasSinTec = computed(() =>
-    this.items().filter((a) => a.estado === 'coordinado_con_cliente' && !a.tecnico_id).length
-  );
-
-  kpiMenos24hSinTec = computed(() => {
-    const now = Date.now();
-    const lim = now + 24 * 3600 * 1000;
-    return this.items().filter((a) => {
-      if (a.tecnico_id) return false;
-      if (!a.fecha_inicio) return false;
-      if (a.estado === 'completada' || a.estado === 'visita_fallida') return false;
-      const t = new Date(a.fecha_inicio).getTime();
-      return t >= now && t <= lim;
-    }).length;
+  kpiPorEstado = computed<Record<EstadoActividad, number>>(() => {
+    const base: Record<EstadoActividad, number> = {
+      en_cola: 0, coordinado_con_cliente: 0, agendado_con_tecnico: 0,
+      visita_fallida: 0, completada: 0,
+    };
+    this.items().forEach((a) => { base[a.estado]++; });
+    return base;
   });
+
+  colorDeEstado = colorDeEstado;
 
   filtradas = computed(() => {
     const f = this.aplicados();
@@ -238,7 +228,25 @@ export class ActivitiesListComponent implements OnInit {
   }
 
   async ngOnInit() {
+    this.setRangoSemanaActual();
     await Promise.all([this.reload(), this.loadTecnicos()]);
+    this.aplicarFiltros();
+  }
+
+  private setRangoSemanaActual() {
+    const now = new Date();
+    const dia = now.getDay(); // 0=domingo
+    const offsetLunes = dia === 0 ? -6 : 1 - dia;
+    const lunes = new Date(now);
+    lunes.setDate(now.getDate() + offsetLunes);
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
+    const fmt = (d: Date) => {
+      const pad = (n: number) => `${n}`.padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    };
+    this.pendiente.desde = fmt(lunes);
+    this.pendiente.hasta = fmt(domingo);
   }
   async reload() { this.items.set(await this.svc.list()); }
   async loadTecnicos() { this.tecnicos.set(await this.techSvc.list()); }

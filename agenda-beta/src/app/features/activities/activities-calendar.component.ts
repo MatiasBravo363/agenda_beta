@@ -13,7 +13,7 @@ import { ActivitiesService } from '../../core/services/activities.service';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { ActivityTypesService } from '../../core/services/activity-types.service';
 import { Actividad, EstadoActividad, Tecnico, TipoActividad } from '../../core/models';
-import { colorDeActividad, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
+import { colorDeActividad, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
 
@@ -54,20 +54,15 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
   `],
   template: `
     <div class="space-y-4">
-      <!-- KPIs -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <app-spotlight-card
-          title="Coordinadas sin técnico"
-          [count]="kpiCoordinadasSinTec()"
-          hint="Actividades coordinadas con cliente que aún no tienen técnico asignado"
-          tone="green"
-        ></app-spotlight-card>
-        <app-spotlight-card
-          title="Sin técnico · faltan <24 hrs"
-          [count]="kpiMenos24hSinTec()"
-          hint="Inminentes (<24h) sin técnico asignado"
-          tone="green"
-        ></app-spotlight-card>
+      <!-- KPIs por estado -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        @for (e of estados; track e) {
+          <app-spotlight-card
+            [title]="ESTADO_LABEL[e]"
+            [count]="kpiPorEstado()[e]"
+            [customColor]="colorDeEstado(e)"
+          ></app-spotlight-card>
+        }
       </div>
 
       <div class="flex gap-4">
@@ -338,21 +333,16 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     });
   });
 
-  kpiCoordinadasSinTec = computed(() =>
-    this.items().filter((a) => a.estado === 'coordinado_con_cliente' && !a.tecnico_id).length
-  );
-
-  kpiMenos24hSinTec = computed(() => {
-    const now = Date.now();
-    const lim = now + 24 * 3600 * 1000;
-    return this.items().filter((a) => {
-      if (a.tecnico_id) return false;
-      if (!a.fecha_inicio) return false;
-      if (a.estado === 'completada' || a.estado === 'visita_fallida') return false;
-      const t = new Date(a.fecha_inicio).getTime();
-      return t >= now && t <= lim;
-    }).length;
+  kpiPorEstado = computed<Record<EstadoActividad, number>>(() => {
+    const base: Record<EstadoActividad, number> = {
+      en_cola: 0, coordinado_con_cliente: 0, agendado_con_tecnico: 0,
+      visita_fallida: 0, completada: 0,
+    };
+    this.items().forEach((a) => { base[a.estado]++; });
+    return base;
   });
+
+  colorDeEstado = colorDeEstado;
 
   options = computed<CalendarOptions>(() => ({
     plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
