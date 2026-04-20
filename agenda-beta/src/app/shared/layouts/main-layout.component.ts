@@ -8,73 +8,85 @@ import pkg from '../../../../package.json';
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
-    <div class="min-h-screen flex bg-slate-50">
+    <div class="min-h-screen flex bg-slate-50 dark:bg-slate-950">
       <aside
-        class="relative border-r border-slate-200 bg-white flex flex-col transition-[width] duration-300 ease-in-out"
+        class="relative border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col transition-[width] duration-300 ease-in-out"
         [style.width]="collapsed() ? '4rem' : '16rem'"
       >
         <button
           type="button"
           (click)="toggle()"
-          class="absolute top-6 -right-3 z-20 w-7 h-7 rounded-full bg-white border border-slate-300 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-900 hover:border-brand-400 transition-colors"
+          class="absolute top-6 -right-3 z-20 w-7 h-7 rounded-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 shadow-md flex items-center justify-center text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-brand-400 transition-colors"
           [title]="collapsed() ? 'Expandir' : 'Colapsar'"
         >
           <span class="text-sm leading-none transition-transform duration-300" [class.rotate-180]="collapsed()">‹</span>
         </button>
 
-        <div class="p-6 border-b border-slate-200 whitespace-nowrap overflow-hidden">
+        <div class="p-6 border-b border-slate-200 dark:border-slate-800 whitespace-nowrap overflow-hidden">
           @if (!collapsed()) {
-            <div class="text-xl font-extrabold tracking-tight">Agenda<span class="text-brand-600">_BETA</span></div>
+            <div class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">Agenda<span class="text-brand-600 dark:text-brand-500">_BETA</span></div>
             <div class="flex items-baseline gap-2 mt-1">
-              <span class="text-xs text-slate-500">Bermann S.A.</span>
-              <span class="text-[10px] font-mono text-slate-400">v{{ version }}</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400">Bermann S.A.</span>
+              <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">v{{ version }}</span>
             </div>
           } @else {
-            <div class="text-xl font-extrabold tracking-tight text-center text-brand-600">A</div>
+            <div class="text-xl font-extrabold tracking-tight text-center text-brand-600 dark:text-brand-500">A</div>
           }
         </div>
 
         <nav class="flex-1 p-2 space-y-1 text-sm">
-          <a routerLink="/actividades" routerLinkActive="bg-brand-50 text-brand-700"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 whitespace-nowrap"
+          <a routerLink="/dashboard" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
+             [title]="collapsed() ? 'Dashboard' : ''">
+            <span class="text-lg">📊</span>
+            @if (!collapsed()) { <span>Dashboard</span> }
+          </a>
+          <a routerLink="/actividades" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Actividades' : ''">
             <span class="text-lg">📅</span>
             @if (!collapsed()) { <span>Actividades</span> }
           </a>
-          <a routerLink="/historial" routerLinkActive="bg-brand-50 text-brand-700"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 whitespace-nowrap"
+          <a routerLink="/historial" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Historial' : ''">
             <span class="text-lg">🕑</span>
             @if (!collapsed()) { <span>Historial</span> }
           </a>
 
           @if (!collapsed()) {
-            <div class="pt-4 pb-1 px-3 text-[10px] uppercase tracking-wider text-slate-400">Mantenedores</div>
+            <div class="pt-4 pb-1 px-3 text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Mantenedores</div>
           } @else {
-            <div class="my-2 border-t border-slate-200 mx-2"></div>
+            <div class="my-2 border-t border-slate-200 dark:border-slate-700 mx-2"></div>
           }
 
-          <a routerLink="/tecnicos" routerLinkActive="bg-brand-50 text-brand-700"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 whitespace-nowrap"
+          <a routerLink="/tecnicos" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Técnicos' : ''">
             <span class="text-lg">🔧</span>
             @if (!collapsed()) { <span>Técnicos</span> }
           </a>
-          <a routerLink="/tipos-actividad" routerLinkActive="bg-brand-50 text-brand-700"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 whitespace-nowrap"
+          <a routerLink="/tipos-actividad" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Tipos de actividad' : ''">
             <span class="text-lg">🏷️</span>
             @if (!collapsed()) { <span>Tipos de actividad</span> }
           </a>
-          <a routerLink="/usuarios" routerLinkActive="bg-brand-50 text-brand-700"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 text-slate-700 whitespace-nowrap"
+          <a routerLink="/usuarios" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Usuarios' : ''">
             <span class="text-lg">👤</span>
             @if (!collapsed()) { <span>Usuarios</span> }
           </a>
+          <a routerLink="/configuracion" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
+             [title]="collapsed() ? 'Configuración' : ''">
+            <span class="text-lg">⚙️</span>
+            @if (!collapsed()) { <span>Configuración</span> }
+          </a>
         </nav>
 
-        <div class="p-3 border-t border-slate-200 text-xs text-slate-500">
+        <div class="p-3 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
           @if (!collapsed()) {
             <div class="truncate mb-2">{{ auth.user()?.email }}</div>
             <button class="btn-secondary w-full" (click)="logout()">Cerrar sesión</button>
@@ -84,7 +96,7 @@ import pkg from '../../../../package.json';
         </div>
       </aside>
 
-      <main class="flex-1 min-w-0">
+      <main class="flex-1 min-w-0 text-slate-900 dark:text-slate-100">
         <router-outlet/>
       </main>
     </div>

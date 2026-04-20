@@ -6,13 +6,13 @@ type Tone = 'indigo' | 'amber' | 'rose' | 'green';
   selector: 'app-spotlight-card',
   standalone: true,
   template: `
-    <div class="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 transition-shadow hover:shadow-lg"
+    <div class="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 transition-shadow hover:shadow-lg"
          [style]="bgStyle()">
       <div class="relative z-10">
-        <div class="text-xs uppercase tracking-wider text-slate-500">{{ title }}</div>
+        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ title }}</div>
         <div class="mt-2 text-4xl font-bold" [style.color]="accentColor()">{{ count }}</div>
         @if (hint) {
-          <div class="mt-1 text-xs text-slate-500">{{ hint }}</div>
+          <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ hint }}</div>
         }
       </div>
     </div>
@@ -26,6 +26,7 @@ export class SpotlightCardComponent {
   @Input() count = 0;
   @Input() hint = '';
   @Input() tone: Tone = 'indigo';
+  @Input() customColor?: string;
 
   private host = inject(ElementRef<HTMLElement>);
   private mx = 50;
@@ -41,6 +42,7 @@ export class SpotlightCardComponent {
   }
 
   accentColor(): string {
+    if (this.customColor) return this.customColor;
     switch (this.tone) {
       case 'amber': return '#b45309';
       case 'rose': return '#be123c';
@@ -50,6 +52,7 @@ export class SpotlightCardComponent {
   }
 
   private glowColor(): string {
+    if (this.customColor) return this.hexToRgba(this.customColor, 0.32);
     switch (this.tone) {
       case 'amber': return 'rgba(245, 158, 11, 0.28)';
       case 'rose': return 'rgba(244, 63, 94, 0.28)';
@@ -58,7 +61,16 @@ export class SpotlightCardComponent {
     }
   }
 
+  private hexToRgba(hex: string, alpha: number): string {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
   bgStyle(): string {
-    return `background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), ${this.glowColor()}, transparent 55%), white;`;
+    return `background-image: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), ${this.glowColor()}, transparent 55%);`;
   }
 }

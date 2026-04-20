@@ -24,6 +24,12 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'actividades' },
 
       {
+        path: 'dashboard',
+        loadChildren: () =>
+          import('./features/dashboard/dashboard.routes').then((m) => m.DASHBOARD_ROUTES),
+      },
+
+      {
         path: 'actividades',
         loadComponent: () =>
           import('./features/activities/activities-shell.component').then((m) => m.ActivitiesShellComponent),
@@ -69,6 +75,10 @@ export const routes: Routes = [
       {
         path: 'historial',
         loadComponent: () => import('./features/history/history.component').then((m) => m.HistoryComponent),
+      },
+      {
+        path: 'configuracion',
+        loadComponent: () => import('./features/configuracion/configuracion.component').then((m) => m.ConfiguracionComponent),
       },
     ],
   },

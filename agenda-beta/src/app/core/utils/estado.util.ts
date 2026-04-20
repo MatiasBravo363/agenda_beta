@@ -17,21 +17,21 @@ export const ESTADO_LABEL: Record<EstadoActividad, string> = {
  * - visita_fallida → gris
  * - completada → verde oscuro
  */
-export function colorDeActividad(a: Pick<Actividad, 'estado'>, t?: Tecnico | null): string {
-  switch (a.estado) {
-    case 'en_cola':
-      return '#2563eb';
-    case 'coordinado_con_cliente':
-      return '#dc2626';
-    case 'agendado_con_tecnico':
-      if (t && !t.tecnico_bermann && (t.region ?? '').toLowerCase() === 'santiago') {
-        return '#16a34a';
-      }
-      return '#ea580c';
-    case 'visita_fallida':
-      return '#6b7280';
-    case 'completada':
-      return '#065f46';
+export function colorDeActividad(a: Pick<Actividad, 'estado'>, _t?: Tecnico | null): string {
+  return colorDeEstado(a.estado);
+}
+
+/**
+ * Color base por estado, sin depender del técnico. Útil para dashboards,
+ * leyendas y spotlight cards donde no hay una actividad concreta.
+ */
+export function colorDeEstado(estado: EstadoActividad): string {
+  switch (estado) {
+    case 'en_cola': return '#64748b';
+    case 'coordinado_con_cliente': return '#dc2626';
+    case 'agendado_con_tecnico': return '#0ea5e9';
+    case 'visita_fallida': return '#8b4513';
+    case 'completada': return '#5ccb5f';
   }
 }
 
