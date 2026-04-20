@@ -89,7 +89,8 @@ const TIPO_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#a
           @if (distribTipos().length > 0) {
             <div class="flex h-4 rounded-md overflow-hidden border border-slate-200">
               @for (s of distribTipos(); track s.nombre) {
-                <div [style.width.%]="s.pct" [style.background]="s.color"
+                <div [style.flex]="'0 0 ' + (s.pct < 2 ? 2 : s.pct) + '%'"
+                     [style.background]="s.color"
                      [title]="s.nombre + ' · ' + s.count + ' (' + s.pct.toFixed(1) + '%)'"></div>
               }
             </div>
@@ -244,11 +245,29 @@ export class DashboardComponent implements OnInit {
 
   chartOptions = computed<EChartsOption>(() => {
     const list = this.filtered().filter((a) => a.fecha_inicio);
-    const dias = new Set<string>();
-    list.forEach((a) => dias.add(a.fecha_inicio!.slice(0, 10)));
-    const xDays = Array.from(dias).sort();
+    const desde = this.fDesde() ? new Date(this.fDesde() + 'T00:00:00') : null;
+    const hasta = this.fHasta() ? new Date(this.fHasta() + 'T00:00:00') : null;
+    const fmt = (d: Date) => {
+      const p = (n: number) => `${n}`.padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    };
 
-    const series = ESTADOS.map((e) => ({
+    let xDays: string[];
+    if (desde && hasta) {
+      xDays = [];
+      const cur = new Date(desde);
+      while (cur.getTime() <= hasta.getTime()) {
+        xDays.push(fmt(cur));
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else {
+      const dias = new Set<string>();
+      list.forEach((a) => dias.add(a.fecha_inicio!.slice(0, 10)));
+      xDays = Array.from(dias).sort();
+    }
+
+    const estadosGraficables = ESTADOS.filter((e) => e !== 'en_cola');
+    const series = estadosGraficables.map((e) => ({
       name: ESTADO_LABEL[e],
       type: 'line' as const,
       smooth: true,
@@ -261,7 +280,7 @@ export class DashboardComponent implements OnInit {
 
     return {
       tooltip: { trigger: 'axis' },
-      legend: { data: ESTADOS.map((e) => ESTADO_LABEL[e]), bottom: 0 },
+      legend: { data: estadosGraficables.map((e) => ESTADO_LABEL[e]), bottom: 0 },
       grid: { left: 40, right: 20, top: 20, bottom: 50 },
       xAxis: { type: 'category', data: xDays, boundaryGap: false },
       yAxis: { type: 'value', minInterval: 1 },

@@ -6,13 +6,13 @@ type Tone = 'indigo' | 'amber' | 'rose' | 'green';
   selector: 'app-spotlight-card',
   standalone: true,
   template: `
-    <div class="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 transition-shadow hover:shadow-lg"
+    <div class="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 transition-shadow hover:shadow-lg"
          [style]="bgStyle()">
       <div class="relative z-10">
-        <div class="text-xs uppercase tracking-wider text-slate-500">{{ title }}</div>
+        <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ title }}</div>
         <div class="mt-2 text-4xl font-bold" [style.color]="accentColor()">{{ count }}</div>
         @if (hint) {
-          <div class="mt-1 text-xs text-slate-500">{{ hint }}</div>
+          <div class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ hint }}</div>
         }
       </div>
     </div>
@@ -71,6 +71,6 @@ export class SpotlightCardComponent {
   }
 
   bgStyle(): string {
-    return `background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), ${this.glowColor()}, transparent 55%), white;`;
+    return `background-image: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), ${this.glowColor()}, transparent 55%);`;
   }
 }

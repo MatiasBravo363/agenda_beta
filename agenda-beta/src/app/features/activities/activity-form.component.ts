@@ -31,16 +31,16 @@ import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../sha
             </div>
 
             <div>
-              <label class="label">Estado</label>
+              <label class="label">Estado *</label>
               <select class="input" [(ngModel)]="model()!.estado" name="estado">
                 @for (e of estados; track e) { <option [value]="e">{{ ESTADO_LABEL[e] }}</option> }
               </select>
             </div>
 
             <div>
-              <label class="label">Tipo de actividad</label>
+              <label class="label">Tipo de actividad *</label>
               <select class="input" [(ngModel)]="model()!.tipo_actividad_id" name="tipo">
-                <option [ngValue]="null">— Sin definir —</option>
+                <option [ngValue]="null">— Seleccionar —</option>
                 @for (t of tipos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
               </select>
             </div>
@@ -245,6 +245,13 @@ export class ActivityFormComponent implements OnInit {
   async save() {
     const m = this.model();
     if (!m?.nombre_cliente) { this.error.set('El nombre del cliente es obligatorio'); return; }
+    if (!m.estado) { this.error.set('El estado es obligatorio'); return; }
+    if (!m.tipo_actividad_id) { this.error.set('El tipo de actividad es obligatorio'); return; }
+    const estadosConTecnico = ['agendado_con_tecnico', 'visita_fallida', 'completada'];
+    if (m.tecnico_id && !estadosConTecnico.includes(m.estado)) {
+      this.error.set('Para asignar técnico, el estado debe ser "Agendado con técnico", "Visita fallida" o "Completada".');
+      return;
+    }
     const fe = this.fechaError();
     if (fe) { this.error.set(fe); return; }
     if (this.modoDuracion() && m.fecha_inicio) {

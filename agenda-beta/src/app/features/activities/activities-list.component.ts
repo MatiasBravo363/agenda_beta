@@ -153,7 +153,10 @@ export class ActivitiesListComponent implements OnInit {
       en_cola: 0, coordinado_con_cliente: 0, agendado_con_tecnico: 0,
       visita_fallida: 0, completada: 0,
     };
-    this.items().forEach((a) => { base[a.estado]++; });
+    this.items().forEach((a) => {
+      if (a.estado === 'en_cola') base.en_cola += a.cantidad_pendiente ?? 1;
+      else base[a.estado]++;
+    });
     return base;
   });
 

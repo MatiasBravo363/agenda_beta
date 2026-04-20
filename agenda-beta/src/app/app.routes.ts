@@ -76,6 +76,10 @@ export const routes: Routes = [
         path: 'historial',
         loadComponent: () => import('./features/history/history.component').then((m) => m.HistoryComponent),
       },
+      {
+        path: 'configuracion',
+        loadComponent: () => import('./features/configuracion/configuracion.component').then((m) => m.ConfiguracionComponent),
+      },
     ],
   },
   { path: '**', redirectTo: '' },
