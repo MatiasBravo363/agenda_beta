@@ -121,7 +121,7 @@ import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../sha
 
             <div class="col-span-2">
               <label class="label">Descripción</label>
-              <textarea class="input min-h-[100px]" [(ngModel)]="model()!.descripcion" name="descripcion"></textarea>
+              <textarea class="input min-h-[220px] resize-y" [(ngModel)]="model()!.descripcion" name="descripcion"></textarea>
             </div>
           </div>
 
