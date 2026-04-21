@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, EventEmitter, inject, Input, OnInit, Output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ActivitiesService } from '../../core/services/activities.service';
@@ -14,7 +14,9 @@ import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../sha
   imports: [FormsModule, RouterLink, DireccionAutocompleteComponent],
   template: `
     <div class="max-w-3xl mx-auto space-y-6">
-      <a routerLink="/actividades" class="text-sm text-slate-500 hover:text-slate-700">← Volver a actividades</a>
+      @if (!embed) {
+        <a routerLink="/actividades" class="text-sm text-slate-500 hover:text-slate-700">← Volver a actividades</a>
+      }
 
       @if (model()) {
         <div class="card p-6 space-y-6">
@@ -130,7 +132,11 @@ import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../sha
               <button class="btn-secondary" (click)="clone()">Clonar</button>
               <button class="btn-danger" (click)="remove()">Eliminar</button>
             }
-            <button class="btn-secondary" routerLink="/actividades">Cancelar</button>
+            @if (embed) {
+              <button class="btn-secondary" (click)="cancel()">Cancelar</button>
+            } @else {
+              <button class="btn-secondary" routerLink="/actividades">Cancelar</button>
+            }
             <button class="btn-primary" (click)="save()" [disabled]="saving()">
               {{ saving() ? 'Guardando…' : 'Guardar' }}
             </button>
@@ -146,6 +152,12 @@ export class ActivityFormComponent implements OnInit {
   private typeSvc = inject(ActivityTypesService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+
+  @Input() idEmbed?: string;
+  @Output() guardado = new EventEmitter<void>();
+  @Output() cancelado = new EventEmitter<void>();
+
+  get embed(): boolean { return !!this.idEmbed; }
 
   model = signal<Partial<Actividad> | null>(null);
   tecnicos = signal<Tecnico[]>([]);
@@ -179,7 +191,7 @@ export class ActivityFormComponent implements OnInit {
     this.tecnicos.set(t);
     this.tipos.set(tp);
 
-    const id = this.route.snapshot.paramMap.get('id');
+    const id = this.idEmbed ?? this.route.snapshot.paramMap.get('id');
     if (id && id !== 'nueva') {
       this.isNew = false;
       const a = await this.svc.getById(id);
@@ -262,9 +274,11 @@ export class ActivityFormComponent implements OnInit {
     try {
       if (this.isNew) {
         const created = await this.svc.create(m);
-        this.router.navigate(['/actividades', created.id]);
+        if (this.embed) this.guardado.emit();
+        else this.router.navigate(['/actividades', created.id]);
       } else {
         await this.svc.update(m.id!, m);
+        if (this.embed) this.guardado.emit();
       }
     } catch (e: any) {
       this.error.set(e?.message ?? 'Error al guardar');
@@ -273,16 +287,20 @@ export class ActivityFormComponent implements OnInit {
     }
   }
 
+  cancel() { this.cancelado.emit(); }
+
   async remove() {
     const m = this.model(); if (!m?.id) return;
     if (!confirm('¿Eliminar actividad?')) return;
     await this.svc.remove(m.id);
-    this.router.navigate(['/actividades']);
+    if (this.embed) this.guardado.emit();
+    else this.router.navigate(['/actividades']);
   }
 
   async clone() {
     const m = this.model(); if (!m?.id) return;
     const created = await this.svc.clone(m.id);
-    this.router.navigate(['/actividades', created.id]);
+    if (this.embed) this.guardado.emit();
+    else this.router.navigate(['/actividades', created.id]);
   }
 }

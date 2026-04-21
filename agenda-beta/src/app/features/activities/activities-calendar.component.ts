@@ -16,6 +16,7 @@ import { Actividad, EstadoActividad, Tecnico, TipoActividad } from '../../core/m
 import { colorDeActividad, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
+import { ActivityFormComponent } from './activity-form.component';
 
 interface DropPending {
   actividad: Actividad;
@@ -27,7 +28,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
 @Component({
   selector: 'app-activities-calendar',
   standalone: true,
-  imports: [FullCalendarModule, FormsModule, DireccionAutocompleteComponent, SpotlightCardComponent],
+  imports: [FullCalendarModule, FormsModule, DireccionAutocompleteComponent, SpotlightCardComponent, ActivityFormComponent],
   styles: [`
     @keyframes heartbeat-pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
@@ -266,6 +267,19 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
       </div>
     }
 
+    <!-- Modal edición -->
+    @if (editandoId()) {
+      <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-start justify-center p-4 overflow-auto" (click)="cerrarEdicion()">
+        <div class="w-full max-w-3xl mt-8" (click)="$event.stopPropagation()">
+          <app-activity-form
+            [idEmbed]="editandoId()!"
+            (guardado)="onGuardadoEdicion()"
+            (cancelado)="cerrarEdicion()">
+          </app-activity-form>
+        </div>
+      </div>
+    }
+
     <!-- Modal multiplicar -->
     @if (multPending()) {
       <div class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4" (click)="multPending.set(null)">
@@ -329,6 +343,8 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   multPending = signal<Actividad | null>(null);
   multN = 2;
 
+  editandoId = signal<string | null>(null);
+
   tecnicoRequerido = computed(() => ESTADOS_REQUIEREN_TECNICO.includes(this.dropEstado));
 
   enCola = computed(() => this.items().filter((a) => a.estado === 'en_cola'));
@@ -387,7 +403,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', day: 'Día', list: 'Lista' },
     height: 680,
     events: this.toEvents(this.filtered()),
-    eventClick: (arg) => this.router.navigate(['/actividades', arg.event.id]),
+    eventClick: (arg) => this.editandoId.set(arg.event.id),
     eventDrop: (arg) => this.onEventChange(arg),
     eventResize: (arg) => this.onEventChange(arg),
     select: (arg: DateSelectArg) => this.onRangeSelect(arg),
@@ -593,6 +609,12 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
       arg.revert();
       this.flash('err', e?.message ?? 'No se pudo actualizar.');
     }
+  }
+
+  cerrarEdicion() { this.editandoId.set(null); }
+  async onGuardadoEdicion() {
+    this.editandoId.set(null);
+    await this.reloadAll();
   }
 
   private flash(type: 'ok' | 'err', text: string) {

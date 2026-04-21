@@ -8,8 +8,31 @@ import { Actividad, EstadoActividad, Tecnico } from '../../core/models';
 import { colorDeActividad, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
+import { ActivityFormComponent } from './activity-form.component';
 
-type SortKey = 'numero' | 'creador' | 'creado' | 'estado' | 'cliente' | 'tipo' | 'ubicacion';
+interface GrupoDia {
+  key: string;       // 'YYYY-MM-DD' o '__sin__'
+  label: string;     // 'Lunes 21 de abril de 2026' o 'Sin fecha'
+  items: Actividad[];
+}
+
+const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const DIAS_LARGOS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+function diaKey(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const pad = (n: number) => `${n}`.padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function labelDia(key: string): string {
+  const [y, m, d] = key.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${DIAS_LARGOS[date.getDay()]} ${d} de ${MESES[m - 1]} de ${y}`;
+}
+
+type SortKey = 'numero' | 'creador' | 'creado' | 'horario' | 'estado' | 'cliente' | 'tipo' | 'ubicacion';
 type SortDir = 'asc' | 'desc';
 
 interface FiltrosAplicados {
@@ -26,7 +49,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
 @Component({
   selector: 'app-activities-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent],
+  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, ActivityFormComponent],
   template: `
     <div class="space-y-4">
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -86,44 +109,123 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
         </div>
       </div>
 
-      <div class="card overflow-hidden">
-        <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
-            <tr>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('numero')">ID {{ arrow('numero') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creador')">Usuario creador {{ arrow('creador') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creado')">Fecha creación {{ arrow('creado') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('estado')">Estado {{ arrow('estado') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo actividad {{ arrow('tipo') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('ubicacion')">Ubicación {{ arrow('ubicacion') }}</th>
-              <th class="w-40"></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (a of filtradas(); track a.id) {
-              <tr class="border-t border-slate-100 hover:bg-slate-50">
-                <td class="px-4 py-2.5 font-mono text-xs text-slate-600" [title]="a.id">#{{ a.numero ?? '—' }}</td>
-                <td class="px-4 py-2.5">{{ a.creado_por ? (a.creado_por.nombre + ' ' + a.creado_por.apellido) : '—' }}</td>
-                <td class="px-4 py-2.5 text-slate-600">{{ a.created_at ? (a.created_at | date:'dd-MM-yyyy HH:mm') : '—' }}</td>
-                <td class="px-4 py-2.5">
-                  <span class="chip text-white" [style.background]="color(a)">{{ ESTADO_LABEL[a.estado] }}</span>
-                </td>
-                <td class="px-4 py-2.5 font-medium">{{ a.nombre_cliente }}</td>
-                <td class="px-4 py-2.5 text-slate-600">{{ a.tipo_actividad?.nombre || '—' }}</td>
-                <td class="px-4 py-2.5 text-slate-600">{{ a.ubicacion || '—' }}</td>
-                <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
-                  <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', a.id]">Abrir</a>
-                  <button class="text-slate-500 hover:underline" (click)="clone(a)">Clonar</button>
-                </td>
-              </tr>
-            } @empty {
-              <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400">Sin actividades</td></tr>
+      <div class="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-4">
+        <!-- Mini-calendario -->
+        <aside class="card p-3 h-fit space-y-3">
+          <div class="flex items-center justify-between">
+            <button class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500" (click)="mesAnterior()" aria-label="Mes anterior">‹</button>
+            <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {{ mesLabel() }}
+            </div>
+            <button class="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500" (click)="mesSiguiente()" aria-label="Mes siguiente">›</button>
+          </div>
+
+          <div class="grid grid-cols-7 gap-0.5 text-center text-[10px] uppercase text-slate-400">
+            @for (d of diasSemana; track d) { <div>{{ d }}</div> }
+          </div>
+
+          <div class="grid grid-cols-7 gap-0.5 text-xs">
+            @for (c of celdasMes(); track $index) {
+              @if (c.key) {
+                <button
+                  class="aspect-square flex items-center justify-center rounded relative transition"
+                  [class.text-slate-400]="!c.mesActual"
+                  [class.text-slate-700]="c.mesActual"
+                  [class.dark:text-slate-200]="c.mesActual"
+                  [class.bg-brand-600]="c.key === diaSeleccionado()"
+                  [class.text-white]="c.key === diaSeleccionado()"
+                  [class.hover:bg-slate-100]="c.key !== diaSeleccionado()"
+                  [class.dark:hover:bg-slate-800]="c.key !== diaSeleccionado()"
+                  [class.ring-1]="c.hoy && c.key !== diaSeleccionado()"
+                  [class.ring-brand-400]="c.hoy && c.key !== diaSeleccionado()"
+                  (click)="seleccionarDia(c.key)">
+                  {{ c.dia }}
+                  @if (c.tieneActividad) {
+                    <span class="absolute bottom-1 w-1 h-1 rounded-full"
+                          [class.bg-white]="c.key === diaSeleccionado()"
+                          [class.bg-brand-500]="c.key !== diaSeleccionado()"></span>
+                  }
+                </button>
+              } @else {
+                <div class="aspect-square"></div>
+              }
             }
-          </tbody>
-        </table>
+          </div>
+
+          @if (diaSeleccionado()) {
+            <button class="btn-secondary w-full text-xs" (click)="seleccionarDia(null)">Ver todos los días</button>
+          }
+        </aside>
+
+        <!-- Tabla agrupada -->
+        <div class="card overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 dark:bg-slate-800 text-slate-500 text-xs uppercase">
+              <tr>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('numero')">ID {{ arrow('numero') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creador')">Usuario creador {{ arrow('creador') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creado')">Fecha creación {{ arrow('creado') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('horario')">Horario {{ arrow('horario') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('estado')">Estado {{ arrow('estado') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo actividad {{ arrow('tipo') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('ubicacion')">Ubicación {{ arrow('ubicacion') }}</th>
+                <th class="w-40"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (filtradas().length === 0) {
+                <tr><td colspan="9" class="px-4 py-10 text-center text-slate-400">Sin actividades</td></tr>
+              }
+              @for (g of gruposPorDia(); track g.key) {
+                <tr class="bg-slate-50/80 dark:bg-slate-800/60 border-t-2 border-slate-200 dark:border-slate-700">
+                  <td colspan="9" class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    {{ g.label }}
+                    <span class="ml-2 text-slate-400 font-normal normal-case">· {{ g.items.length }}</span>
+                  </td>
+                </tr>
+                @for (a of g.items; track a.id) {
+                  <tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <td class="px-4 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400" [title]="a.id">#{{ a.numero ?? '—' }}</td>
+                    <td class="px-4 py-2.5">{{ a.creado_por ? (a.creado_por.nombre + ' ' + a.creado_por.apellido) : '—' }}</td>
+                    <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.created_at ? (a.created_at | date:'dd-MM-yyyy HH:mm') : '—' }}</td>
+                    <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.fecha_inicio ? (a.fecha_inicio | date:'HH:mm') : '—' }}</td>
+                    <td class="px-4 py-2.5">
+                      <button type="button" class="chip text-white hover:brightness-110 transition cursor-pointer"
+                              [style.background]="color(a)"
+                              (click)="abrirEdicion(a); $event.stopPropagation()"
+                              title="Editar actividad">
+                        {{ ESTADO_LABEL[a.estado] }}
+                      </button>
+                    </td>
+                    <td class="px-4 py-2.5 font-medium">{{ a.nombre_cliente }}</td>
+                    <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.tipo_actividad?.nombre || '—' }}</td>
+                    <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.ubicacion || '—' }}</td>
+                    <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
+                      <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', a.id]">Abrir</a>
+                      <button class="text-slate-500 hover:underline" (click)="clone(a)">Clonar</button>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
+
+    <!-- Modal edición -->
+    @if (editandoId()) {
+      <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-start justify-center p-4 overflow-auto" (click)="cerrarEdicion()">
+        <div class="w-full max-w-3xl mt-8" (click)="$event.stopPropagation()">
+          <app-activity-form
+            [idEmbed]="editandoId()!"
+            (guardado)="onGuardado()"
+            (cancelado)="cerrarEdicion()">
+          </app-activity-form>
+        </div>
+      </div>
+    }
   `,
 })
 export class ActivitiesListComponent implements OnInit {
@@ -138,6 +240,16 @@ export class ActivitiesListComponent implements OnInit {
 
   sortKey = signal<SortKey>('numero');
   sortDir = signal<SortDir>('desc');
+
+  diaSeleccionado = signal<string | null>(null);
+  editandoId = signal<string | null>(null);
+  private hoyDate = new Date();
+  mesVisible = signal<{ year: number; month: number }>({
+    year: this.hoyDate.getFullYear(),
+    month: this.hoyDate.getMonth(),
+  });
+
+  diasSemana = DIAS_SEMANA;
 
   estados = ESTADOS;
   ESTADO_LABEL = ESTADO_LABEL;
@@ -167,6 +279,7 @@ export class ActivitiesListComponent implements OnInit {
     const q = f.busqueda.trim().toLowerCase();
     const desde = f.desde ? new Date(f.desde + 'T00:00:00').getTime() : null;
     const hasta = f.hasta ? new Date(f.hasta + 'T23:59:59').getTime() : null;
+    const dia = this.diaSeleccionado();
     const key = this.sortKey();
     const mult = this.sortDir() === 'asc' ? 1 : -1;
 
@@ -185,6 +298,9 @@ export class ActivitiesListComponent implements OnInit {
         if (desde != null && t < desde) return false;
         if (hasta != null && t > hasta) return false;
       }
+      if (dia) {
+        if (diaKey(a.fecha_inicio) !== dia) return false;
+      }
       return true;
     });
 
@@ -197,11 +313,89 @@ export class ActivitiesListComponent implements OnInit {
     });
   });
 
+  gruposPorDia = computed<GrupoDia[]>(() => {
+    const map = new Map<string, Actividad[]>();
+    for (const a of this.filtradas()) {
+      const k = diaKey(a.fecha_inicio) ?? '__sin__';
+      const arr = map.get(k) ?? [];
+      arr.push(a);
+      map.set(k, arr);
+    }
+    const keys = Array.from(map.keys()).sort((a, b) => {
+      if (a === '__sin__') return 1;
+      if (b === '__sin__') return -1;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
+    return keys.map((k) => ({
+      key: k,
+      label: k === '__sin__' ? 'Sin fecha' : labelDia(k),
+      items: map.get(k)!,
+    }));
+  });
+
+  diasConActividades = computed<Set<string>>(() => {
+    const s = new Set<string>();
+    for (const a of this.items()) {
+      const k = diaKey(a.fecha_inicio);
+      if (k) s.add(k);
+    }
+    return s;
+  });
+
+  mesLabel = computed(() => {
+    const m = this.mesVisible();
+    return `${MESES[m.month]} ${m.year}`;
+  });
+
+  celdasMes = computed(() => {
+    const { year, month } = this.mesVisible();
+    const first = new Date(year, month, 1);
+    const startOffset = first.getDay(); // 0=dom
+    const diasEnMes = new Date(year, month + 1, 0).getDate();
+    const hoyKey = diaKey(new Date().toISOString());
+    const conAct = this.diasConActividades();
+
+    const cells: Array<{ key: string | null; dia: number; mesActual: boolean; hoy: boolean; tieneActividad: boolean }> = [];
+
+    for (let i = 0; i < startOffset; i++) cells.push({ key: null, dia: 0, mesActual: false, hoy: false, tieneActividad: false });
+
+    const pad = (n: number) => `${n}`.padStart(2, '0');
+    for (let d = 1; d <= diasEnMes; d++) {
+      const k = `${year}-${pad(month + 1)}-${pad(d)}`;
+      cells.push({ key: k, dia: d, mesActual: true, hoy: k === hoyKey, tieneActividad: conAct.has(k) });
+    }
+    while (cells.length % 7 !== 0) cells.push({ key: null, dia: 0, mesActual: false, hoy: false, tieneActividad: false });
+    return cells;
+  });
+
+  mesAnterior() {
+    const m = this.mesVisible();
+    const nm = m.month === 0 ? 11 : m.month - 1;
+    const ny = m.month === 0 ? m.year - 1 : m.year;
+    this.mesVisible.set({ year: ny, month: nm });
+  }
+  mesSiguiente() {
+    const m = this.mesVisible();
+    const nm = m.month === 11 ? 0 : m.month + 1;
+    const ny = m.month === 11 ? m.year + 1 : m.year;
+    this.mesVisible.set({ year: ny, month: nm });
+  }
+  seleccionarDia(k: string | null) {
+    this.diaSeleccionado.set(this.diaSeleccionado() === k ? null : k);
+  }
+  abrirEdicion(a: Actividad) { this.editandoId.set(a.id); }
+  cerrarEdicion() { this.editandoId.set(null); }
+  async onGuardado() {
+    this.editandoId.set(null);
+    await this.reload();
+  }
+
   private sortValue(a: Actividad, key: SortKey): string | number {
     switch (key) {
       case 'numero': return a.numero ?? 0;
       case 'creador': return a.creado_por ? `${a.creado_por.nombre} ${a.creado_por.apellido}` : '';
       case 'creado': return a.created_at ? new Date(a.created_at).getTime() : 0;
+      case 'horario': return a.fecha_inicio ? new Date(a.fecha_inicio).getTime() : Number.MAX_SAFE_INTEGER;
       case 'estado': return ESTADO_LABEL[a.estado] ?? a.estado;
       case 'cliente': return a.nombre_cliente ?? '';
       case 'tipo': return a.tipo_actividad?.nombre ?? '';
