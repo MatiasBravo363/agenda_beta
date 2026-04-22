@@ -204,6 +204,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                     <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                       <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', a.id]">Abrir</a>
                       <button class="text-slate-500 hover:underline" (click)="clone(a)">Clonar</button>
+                      <button class="text-red-600 hover:underline" (click)="remove(a)">Borrar</button>
                     </td>
                   </tr>
                 }
@@ -453,6 +454,12 @@ export class ActivitiesListComponent implements OnInit {
   async clone(a: Actividad) {
     if (!confirm(`¿Clonar actividad de "${a.nombre_cliente}"?`)) return;
     await this.svc.clone(a.id);
+    await this.reload();
+  }
+
+  async remove(a: Actividad) {
+    if (!confirm(`¿Eliminar actividad de "${a.nombre_cliente}"? Esta acción no se puede deshacer.`)) return;
+    await this.svc.remove(a.id);
     await this.reload();
   }
 

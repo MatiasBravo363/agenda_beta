@@ -153,11 +153,18 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
                         Estado:
                         <span class="chip text-white" [style.background]="colorDe(a)">{{ ESTADO_LABEL[a.estado] }}</span>
                       </div>
-                      <button type="button"
-                              class="absolute right-0 top-0 w-6 h-6 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 text-xs font-bold"
-                              (mousedown)="$event.stopPropagation()"
-                              (click)="openMultiplicar(a, $event)"
-                              title="Multiplicar">×</button>
+                      <div class="absolute right-0 top-0 flex gap-1">
+                        <button type="button"
+                                class="w-6 h-6 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 text-xs font-bold"
+                                (mousedown)="$event.stopPropagation()"
+                                (click)="openMultiplicar(a, $event)"
+                                title="Multiplicar">×</button>
+                        <button type="button"
+                                class="w-6 h-6 rounded-md border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 text-xs font-bold"
+                                (mousedown)="$event.stopPropagation()"
+                                (click)="removeFromCola(a, $event)"
+                                title="Borrar">🗑</button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -505,6 +512,19 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     ev.stopPropagation();
     this.multPending.set(a);
     this.multN = Math.max(2, a.cantidad_pendiente ?? 1);
+  }
+
+  async removeFromCola(a: Actividad, ev: Event) {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (!confirm(`¿Eliminar actividad de "${a.nombre_cliente}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      await this.svc.remove(a.id);
+      await this.reloadAll();
+      this.flash('ok', 'Actividad eliminada.');
+    } catch (e: any) {
+      this.flash('err', e?.message ?? 'No se pudo eliminar.');
+    }
   }
 
   async confirmMultiplicar() {
