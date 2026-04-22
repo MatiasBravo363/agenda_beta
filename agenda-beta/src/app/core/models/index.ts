@@ -98,6 +98,12 @@ export interface Actividad {
   tecnico?: Tecnico | null;
   tipo_actividad?: TipoActividad | null;
   creado_por?: Usuario | null;
+  // Multi-asignación (pivotes actividad_tecnicos / actividad_tipos_actividad).
+  // `tecnico_id` y `tipo_actividad_id` quedan como "principal" (primer elemento).
+  tecnicos?: Tecnico[];
+  tipos_actividad?: TipoActividad[];
+  tecnicos_ids?: string[];
+  tipos_actividad_ids?: string[];
 }
 
 export interface ActividadHistorial {
