@@ -1,8 +1,10 @@
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UsersService } from '../../core/services/users.service';
-import { Usuario } from '../../core/models';
+import { TiposUsuarioService } from '../../core/services/tipos-usuario.service';
+import { Usuario, TipoUsuario } from '../../core/models';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { mensajeGenericoDeError } from '../../core/services/service-error.util';
 
 type SortKey = 'nombre' | 'email' | 'created_at' | 'last_sign_in_at';
 type SortDir = 'asc' | 'desc';
@@ -30,10 +32,17 @@ type SortDir = 'asc' | 'desc';
       @if (creating()) {
         <div class="card p-6 space-y-4">
           <h3 class="font-semibold">Invitar nuevo usuario</h3>
-          <div class="grid grid-cols-3 gap-4">
+          <div class="grid grid-cols-2 gap-4">
             <div><label class="label">Email</label><input class="input" type="email" [(ngModel)]="creating()!.email"/></div>
             <div><label class="label">Nombre</label><input class="input" [(ngModel)]="creating()!.nombre"/></div>
             <div><label class="label">Apellido</label><input class="input" [(ngModel)]="creating()!.apellido"/></div>
+            <div>
+              <label class="label">Tipo de usuario</label>
+              <select class="input" [(ngModel)]="creating()!.tipo_usuario_id">
+                <option [ngValue]="null">— Sin tipo —</option>
+                @for (t of tipos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
+              </select>
+            </div>
           </div>
           <p class="text-xs text-slate-500">
             Se enviará un enlace de acceso al email. El perfil aparecerá cuando la persona confirme su acceso.
@@ -54,6 +63,13 @@ type SortDir = 'asc' | 'desc';
             <div><label class="label">Apellido</label><input class="input" [(ngModel)]="editing()!.apellido"/></div>
             <div class="col-span-2"><label class="label">Email</label>
               <input class="input bg-slate-50" [value]="editing()!.email || ''" disabled/>
+            </div>
+            <div class="col-span-2">
+              <label class="label">Tipo de usuario</label>
+              <select class="input" [(ngModel)]="editing()!.tipo_usuario_id">
+                <option [ngValue]="null">— Sin tipo —</option>
+                @for (t of tipos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
+              </select>
             </div>
           </div>
           <div class="flex flex-wrap gap-2 mt-4 justify-between items-center">
@@ -91,6 +107,7 @@ type SortDir = 'asc' | 'desc';
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('email')">
                 Email {{ sortArrow('email') }}
               </th>
+              <th class="text-left px-4 py-3">Tipo</th>
               <th class="text-left px-4 py-3">Estado</th>
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('created_at')">
                 Creado {{ sortArrow('created_at') }}
@@ -106,6 +123,13 @@ type SortDir = 'asc' | 'desc';
               <tr class="border-t border-slate-100 hover:bg-slate-50">
                 <td class="px-4 py-2.5 font-medium">{{ u.nombre }} {{ u.apellido }}</td>
                 <td class="px-4 py-2.5 text-slate-600">{{ u.email }}</td>
+                <td class="px-4 py-2.5">
+                  @if (u.tipo_usuario?.nombre) {
+                    <span class="chip bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">{{ u.tipo_usuario!.nombre }}</span>
+                  } @else {
+                    <span class="text-slate-400 text-xs">—</span>
+                  }
+                </td>
                 <td class="px-4 py-2.5">
                   <button
                     class="chip cursor-pointer"
@@ -126,7 +150,7 @@ type SortDir = 'asc' | 'desc';
                 </td>
               </tr>
             } @empty {
-              <tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">Sin registros</td></tr>
+              <tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">Sin registros</td></tr>
             }
           </tbody>
         </table>
@@ -136,10 +160,12 @@ type SortDir = 'asc' | 'desc';
 })
 export class UsersComponent implements OnInit {
   private svc = inject(UsersService);
+  private tiposSvc = inject(TiposUsuarioService);
 
   items = signal<Usuario[]>([]);
+  tipos = signal<TipoUsuario[]>([]);
   editing = signal<Partial<Usuario> | null>(null);
-  creating = signal<{ email: string; nombre: string; apellido: string } | null>(null);
+  creating = signal<{ email: string; nombre: string; apellido: string; tipo_usuario_id: string | null } | null>(null);
   sending = signal(false);
   resetting = signal(false);
   query = signal('');
@@ -170,8 +196,13 @@ export class UsersComponent implements OnInit {
     return [...this.items()].filter(matches).sort(cmp);
   });
 
-  async ngOnInit() { await this.reload(); }
+  async ngOnInit() {
+    await Promise.all([this.reload(), this.loadTipos()]);
+  }
   async reload() { this.items.set(await this.svc.list()); }
+  async loadTipos() {
+    try { this.tipos.set(await this.tiposSvc.list()); } catch {}
+  }
 
   toggleSort(key: SortKey) {
     if (this.sortKey() === key) {
@@ -206,12 +237,16 @@ export class UsersComponent implements OnInit {
     const v = this.editing();
     if (!v?.id) return;
     try {
-      await this.svc.update(v.id, { nombre: v.nombre, apellido: v.apellido });
+      await this.svc.update(v.id, {
+        nombre: v.nombre,
+        apellido: v.apellido,
+        tipo_usuario_id: v.tipo_usuario_id ?? null,
+      });
       this.editing.set(null);
       await this.reload();
       this.flash('ok', 'Usuario actualizado.');
     } catch (e: any) {
-      this.flash('err', e?.message ?? 'Error al guardar.');
+      this.flash('err', mensajeGenericoDeError(e, 'No se pudo guardar.'));
     }
   }
 
@@ -223,7 +258,7 @@ export class UsersComponent implements OnInit {
       await this.svc.sendPasswordReset(email);
       this.flash('ok', `Link de reset enviado a ${email}.`);
     } catch (e: any) {
-      this.flash('err', e?.message ?? 'No se pudo enviar el reset.');
+      this.flash('err', mensajeGenericoDeError(e, 'No se pudo enviar el reset.'));
     } finally {
       this.resetting.set(false);
     }
@@ -234,12 +269,12 @@ export class UsersComponent implements OnInit {
       await this.svc.setActivo(u.id, !u.activo);
       await this.reload();
     } catch (e: any) {
-      this.flash('err', e?.message ?? 'No se pudo cambiar el estado.');
+      this.flash('err', mensajeGenericoDeError(e, 'No se pudo cambiar el estado.'));
     }
   }
 
   startInvite() {
-    this.creating.set({ email: '', nombre: '', apellido: '' });
+    this.creating.set({ email: '', nombre: '', apellido: '', tipo_usuario_id: null });
   }
 
   async sendInvite() {
@@ -251,12 +286,12 @@ export class UsersComponent implements OnInit {
     }
     this.sending.set(true);
     try {
-      await this.svc.invite(v.email, v.nombre, v.apellido);
+      await this.svc.invite(v.email, v.nombre, v.apellido, v.tipo_usuario_id ?? null);
       this.flash('ok', `Invitación enviada a ${v.email}.`);
       this.creating.set(null);
       await this.reload();
     } catch (e: any) {
-      this.flash('err', e?.message ?? 'No se pudo enviar la invitación.');
+      this.flash('err', mensajeGenericoDeError(e, 'No se pudo enviar la invitación.'));
     } finally {
       this.sending.set(false);
     }

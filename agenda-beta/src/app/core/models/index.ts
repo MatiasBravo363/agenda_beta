@@ -7,6 +7,46 @@ export type EstadoActividad =
 
 export type TipoTecnico = 'interno' | 'externo';
 
+export type PermisoCodigo =
+  | 'actividades.ver'
+  | 'actividades.crear'
+  | 'actividades.editar'
+  | 'actividades.borrar'
+  | 'actividades.exportar'
+  | 'tecnicos.ver'
+  | 'tecnicos.crear'
+  | 'tecnicos.editar'
+  | 'tecnicos.borrar'
+  | 'tipos_actividad.ver'
+  | 'tipos_actividad.crear'
+  | 'tipos_actividad.editar'
+  | 'tipos_actividad.borrar'
+  | 'usuarios.ver'
+  | 'usuarios.invitar'
+  | 'usuarios.editar'
+  | 'usuarios.borrar'
+  | 'historial.ver'
+  | 'dashboard.ver'
+  | 'configuracion.ver'
+  | 'log.ver'
+  | 'tipos_usuario.gestionar';
+
+export interface TipoUsuario {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  created_at?: string;
+  permisos_count?: number;
+  usuarios_count?: number;
+}
+
+export interface Permiso {
+  id: string;
+  codigo: PermisoCodigo;
+  descripcion: string;
+  categoria: string;
+}
+
 export interface Usuario {
   id: string;
   nombre: string;
@@ -15,6 +55,8 @@ export interface Usuario {
   activo: boolean;
   created_at?: string;
   last_sign_in_at?: string | null;
+  tipo_usuario_id?: string | null;
+  tipo_usuario?: TipoUsuario | null;
 }
 
 export interface Tecnico {

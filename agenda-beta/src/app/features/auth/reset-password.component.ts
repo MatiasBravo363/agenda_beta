@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { SupabaseService } from '../../core/supabase/supabase.service';
+import { mensajeAuthGenerico } from '../../core/auth/error-messages.util';
 
 @Component({
   selector: 'app-reset-password',
@@ -62,14 +63,23 @@ export class ResetPasswordComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     const { data } = this.sb.client.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+      if (event === 'PASSWORD_RECOVERY') {
         this.ready.set(true);
       }
     });
     this.sub = data.subscription;
 
     const { data: sessionData } = await this.sb.client.auth.getSession();
-    if (sessionData.session) this.ready.set(true);
+    if (sessionData.session) {
+      this.ready.set(true);
+    } else {
+      setTimeout(() => {
+        if (!this.ready()) {
+          this.error.set('El enlace expiró o no es válido. Solicita uno nuevo.');
+          setTimeout(() => this.router.navigate(['/login']), 3000);
+        }
+      }, 1500);
+    }
   }
 
   ngOnDestroy() { this.sub?.unsubscribe(); }
@@ -87,7 +97,7 @@ export class ResetPasswordComponent implements OnInit, OnDestroy {
       await this.sb.client.auth.signOut();
       setTimeout(() => this.router.navigate(['/login']), 2000);
     } catch (e: any) {
-      this.error.set(e?.message ?? 'No se pudo actualizar la contraseña.');
+      this.error.set(mensajeAuthGenerico(e));
     } finally {
       this.loading.set(false);
     }

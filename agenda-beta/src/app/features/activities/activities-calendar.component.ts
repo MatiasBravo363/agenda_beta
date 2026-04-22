@@ -17,6 +17,7 @@ import { colorDeActividad, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../co
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
 import { ActivityFormComponent } from './activity-form.component';
+import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
 interface DropPending {
   actividad: Actividad;
@@ -28,7 +29,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
 @Component({
   selector: 'app-activities-calendar',
   standalone: true,
-  imports: [FullCalendarModule, FormsModule, DireccionAutocompleteComponent, SpotlightCardComponent, ActivityFormComponent],
+  imports: [FullCalendarModule, FormsModule, DireccionAutocompleteComponent, SpotlightCardComponent, ActivityFormComponent, SiTieneDirective],
   styles: [`
     @keyframes heartbeat-pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
@@ -159,7 +160,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
                                 (mousedown)="$event.stopPropagation()"
                                 (click)="openMultiplicar(a, $event)"
                                 title="Multiplicar">×</button>
-                        <button type="button"
+                        <button *appSiTiene="'actividades.borrar'" type="button"
                                 class="w-6 h-6 rounded-md border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 text-xs font-bold"
                                 (mousedown)="$event.stopPropagation()"
                                 (click)="removeFromCola(a, $event)"

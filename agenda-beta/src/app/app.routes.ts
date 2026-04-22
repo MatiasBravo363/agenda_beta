@@ -1,16 +1,12 @@
 import { Routes } from '@angular/router';
 import { authGuard, publicGuard } from './core/auth/auth.guard';
+import { permisoGuard } from './core/auth/permiso.guard';
 
 export const routes: Routes = [
   {
     path: 'login',
     canActivate: [publicGuard],
     loadComponent: () => import('./features/auth/login.component').then((m) => m.LoginComponent),
-  },
-  {
-    path: 'register',
-    canActivate: [publicGuard],
-    loadComponent: () => import('./features/auth/register.component').then((m) => m.RegisterComponent),
   },
   {
     path: 'reset-password',
@@ -70,7 +66,13 @@ export const routes: Routes = [
       },
       {
         path: 'usuarios',
+        canActivate: [permisoGuard('usuarios.ver')],
         loadComponent: () => import('./features/users/users.component').then((m) => m.UsersComponent),
+      },
+      {
+        path: 'tipos-usuario',
+        canActivate: [permisoGuard('tipos_usuario.gestionar')],
+        loadComponent: () => import('./features/tipos-usuario/tipos-usuario.component').then((m) => m.TiposUsuarioComponent),
       },
       {
         path: 'historial',
