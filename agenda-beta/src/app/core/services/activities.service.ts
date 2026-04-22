@@ -3,7 +3,10 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { Actividad, EstadoActividad, Tecnico, TipoActividad } from '../models';
 
 const SELECT_WITH_REL =
-  '*, tecnico:tecnicos(*), tipo_actividad:tipos_actividad(*), creado_por:usuarios!created_by(*),' +
+  '*,' +
+  ' tecnico:tecnicos!actividades_tecnico_id_fkey(*),' +
+  ' tipo_actividad:tipos_actividad!actividades_tipo_actividad_id_fkey(*),' +
+  ' creado_por:usuarios!created_by(*),' +
   ' tecnicos_rel:actividad_tecnicos(tecnico:tecnicos(*)),' +
   ' tipos_rel:actividad_tipos_actividad(tipo:tipos_actividad(*))';
 
