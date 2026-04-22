@@ -1,12 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { SiTieneDirective } from '../directives/si-tiene.directive';
 import pkg from '../../../../package.json';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, SiTieneDirective],
   template: `
     <div class="min-h-screen flex bg-slate-50 dark:bg-slate-950">
       <aside
@@ -26,8 +27,8 @@ import pkg from '../../../../package.json';
           @if (!collapsed()) {
             <div class="text-xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">Agenda<span class="text-brand-600 dark:text-brand-500">_BETA</span></div>
             <div class="flex items-baseline gap-2 mt-1">
-              <span class="text-xs text-slate-500 dark:text-slate-400">Bermann S.A.</span>
-              <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">v{{ version }}</span>
+              <span class="text-xs text-slate-500 dark:text-slate-400">Bermann SpA</span>
+              <span class="text-[10px] font-mono text-slate-400 dark:text-slate-500">V{{ version }}</span>
             </div>
           } @else {
             <div class="text-xl font-extrabold tracking-tight text-center text-brand-600 dark:text-brand-500">A</div>
@@ -35,19 +36,19 @@ import pkg from '../../../../package.json';
         </div>
 
         <nav class="flex-1 p-2 space-y-1 text-sm">
-          <a routerLink="/dashboard" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'dashboard.ver'" routerLink="/dashboard" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Dashboard' : ''">
             <span class="text-lg">📊</span>
             @if (!collapsed()) { <span>Dashboard</span> }
           </a>
-          <a routerLink="/actividades" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'actividades.ver'" routerLink="/actividades" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Actividades' : ''">
             <span class="text-lg">📅</span>
             @if (!collapsed()) { <span>Actividades</span> }
           </a>
-          <a routerLink="/historial" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'historial.ver'" routerLink="/historial" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Historial' : ''">
             <span class="text-lg">🕑</span>
@@ -60,25 +61,31 @@ import pkg from '../../../../package.json';
             <div class="my-2 border-t border-slate-200 dark:border-slate-700 mx-2"></div>
           }
 
-          <a routerLink="/tecnicos" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'tecnicos.ver'" routerLink="/tecnicos" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Técnicos' : ''">
             <span class="text-lg">🔧</span>
             @if (!collapsed()) { <span>Técnicos</span> }
           </a>
-          <a routerLink="/tipos-actividad" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'tipos_actividad.ver'" routerLink="/tipos-actividad" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Tipos de actividad' : ''">
             <span class="text-lg">🏷️</span>
             @if (!collapsed()) { <span>Tipos de actividad</span> }
           </a>
-          <a routerLink="/usuarios" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'usuarios.ver'" routerLink="/usuarios" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Usuarios' : ''">
             <span class="text-lg">👤</span>
             @if (!collapsed()) { <span>Usuarios</span> }
           </a>
-          <a routerLink="/configuracion" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'tipos_usuario.gestionar'" routerLink="/tipos-usuario" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
+             [title]="collapsed() ? 'Tipos de usuario' : ''">
+            <span class="text-lg">🛡️</span>
+            @if (!collapsed()) { <span>Tipos de usuario</span> }
+          </a>
+          <a *appSiTiene="'configuracion.ver'" routerLink="/configuracion" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
              [title]="collapsed() ? 'Configuración' : ''">
             <span class="text-lg">⚙️</span>

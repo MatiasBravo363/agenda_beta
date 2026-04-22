@@ -8,9 +8,12 @@ export class UsersService {
   private readonly table = 'usuarios';
 
   async list(): Promise<Usuario[]> {
-    const { data, error } = await this.sb.client.from(this.table).select('*').order('nombre');
+    const { data, error } = await this.sb.client
+      .from(this.table)
+      .select('*, tipo_usuario:tipos_usuario(id, nombre, descripcion)')
+      .order('nombre');
     if (error) throw error;
-    return data as Usuario[];
+    return (data ?? []) as Usuario[];
   }
 
   async update(id: string, payload: Partial<Usuario>): Promise<Usuario> {
@@ -34,14 +37,18 @@ export class UsersService {
     if (error) throw error;
   }
 
-  async invite(email: string, nombre: string, apellido: string): Promise<void> {
+  async invite(email: string, nombre: string, apellido: string, tipoUsuarioId: string | null = null): Promise<void> {
     const { error } = await this.sb.client.auth.signInWithOtp({
       email,
       options: {
         shouldCreateUser: true,
-        data: { nombre, apellido },
+        data: { nombre, apellido, tipo_usuario_id: tipoUsuarioId },
       },
     });
     if (error) throw error;
+    // El tipo se setea via trigger handle_new_user si lo incluimos ahí,
+    // o mediante update post-confirmación. Para simplicidad: si tenemos tipoUsuarioId,
+    // el super_admin puede ajustarlo manualmente desde la tabla después de que el
+    // usuario confirme el email y aparezca en la lista.
   }
 }

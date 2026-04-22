@@ -79,28 +79,35 @@ export class DireccionAutocompleteComponent {
   loading = signal(false);
 
   private debounceTimer: any = null;
+  private abortController: AbortController | null = null;
 
   onTyping(v: string) {
     this.value = v;
     this.valueChange.emit(v);
     clearTimeout(this.debounceTimer);
+    this.abortController?.abort();
     if (!v || v.trim().length < 3) {
       this.suggestions.set([]);
       this.loading.set(false);
       return;
     }
     this.loading.set(true);
-    this.debounceTimer = setTimeout(() => this.fetchSuggestions(v), 500);
+    this.debounceTimer = setTimeout(() => this.fetchSuggestions(v), 1000);
   }
 
   private async fetchSuggestions(q: string) {
+    this.abortController = new AbortController();
     try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1&accept-language=es`;
-      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1&accept-language=es&countrycodes=cl`;
+      const res = await fetch(url, {
+        headers: { 'Accept': 'application/json', 'Accept-Language': 'es' },
+        signal: this.abortController.signal,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as NominatimResult[];
       this.suggestions.set(data);
-    } catch {
-      this.suggestions.set([]);
+    } catch (e: any) {
+      if (e?.name !== 'AbortError') this.suggestions.set([]);
     } finally {
       this.loading.set(false);
     }

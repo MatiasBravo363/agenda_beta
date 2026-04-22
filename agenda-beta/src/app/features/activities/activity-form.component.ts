@@ -7,11 +7,12 @@ import { ActivityTypesService } from '../../core/services/activity-types.service
 import { Actividad, Tecnico, TipoActividad } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeActividad } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
+import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
 @Component({
   selector: 'app-activity-form',
   standalone: true,
-  imports: [FormsModule, RouterLink, DireccionAutocompleteComponent],
+  imports: [FormsModule, RouterLink, DireccionAutocompleteComponent, SiTieneDirective],
   template: `
     <div class="max-w-3xl mx-auto space-y-6">
       @if (!embed) {
@@ -130,7 +131,7 @@ import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../sha
           <div class="flex gap-2 justify-end pt-4 border-t border-slate-100">
             @if (!isNew) {
               <button class="btn-secondary" (click)="clone()">Clonar</button>
-              <button class="btn-danger" (click)="remove()">Eliminar</button>
+              <button *appSiTiene="'actividades.borrar'" class="btn-danger" (click)="remove()">Eliminar</button>
             }
             @if (embed) {
               <button class="btn-secondary" (click)="cancel()">Cancelar</button>

@@ -2,13 +2,13 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import * as XLSX from 'xlsx';
 import { ActivitiesService } from '../../core/services/activities.service';
 import { Actividad, EstadoActividad, Tecnico } from '../../core/models';
 import { colorDeActividad, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
 import { ActivityFormComponent } from './activity-form.component';
+import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
 interface GrupoDia {
   key: string;       // 'YYYY-MM-DD' o '__sin__'
@@ -49,7 +49,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
 @Component({
   selector: 'app-activities-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, ActivityFormComponent],
+  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, ActivityFormComponent, SiTieneDirective],
   template: `
     <div class="space-y-4">
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -105,7 +105,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
           <button class="btn-primary" (click)="aplicarFiltros()">Buscar</button>
           <button class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
           <span class="text-sm text-slate-500 ml-auto">{{ filtradas().length }} resultado(s)</span>
-          <button class="btn-secondary" (click)="exportXlsx()">Exportar a Excel</button>
+          <button *appSiTiene="'actividades.exportar'" class="btn-secondary" (click)="exportXlsx()">Exportar a Excel</button>
         </div>
       </div>
 
@@ -204,7 +204,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                     <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                       <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', a.id]">Abrir</a>
                       <button class="text-slate-500 hover:underline" (click)="clone(a)">Clonar</button>
-                      <button class="text-red-600 hover:underline" (click)="remove(a)">Borrar</button>
+                      <button *appSiTiene="'actividades.borrar'" class="text-red-600 hover:underline" (click)="remove(a)">Borrar</button>
                     </td>
                   </tr>
                 }
@@ -463,7 +463,9 @@ export class ActivitiesListComponent implements OnInit {
     await this.reload();
   }
 
-  exportXlsx() {
+  async exportXlsx() {
+    const ExcelJS = (await import('exceljs')).default ?? (await import('exceljs'));
+    const { saveAs } = await import('file-saver');
     const rows = this.filtradas().map((a) => ({
       ID: a.numero ?? '',
       'Usuario creador': a.creado_por ? `${a.creado_por.nombre} ${a.creado_por.apellido}` : '',
@@ -476,11 +478,16 @@ export class ActivitiesListComponent implements OnInit {
       Inicio: a.fecha_inicio ? this.fmt(a.fecha_inicio) : '',
       Fin: a.fecha_fin ? this.fmt(a.fecha_fin) : '',
     }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Actividades');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Actividades');
+    if (rows.length) {
+      ws.columns = Object.keys(rows[0]).map((key) => ({ header: key, key, width: 18 }));
+      rows.forEach((r) => ws.addRow(r));
+      ws.getRow(1).font = { bold: true };
+    }
+    const buf = await wb.xlsx.writeBuffer();
     const stamp = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `actividades-${stamp}.xlsx`);
+    saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `actividades-${stamp}.xlsx`);
   }
 
   private fmt(iso: string): string {

@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { mensajeAuthGenerico } from '../../core/auth/error-messages.util';
 
 @Component({
   selector: 'app-login',
@@ -34,9 +35,8 @@ import { AuthService } from '../../core/auth/auth.service';
           </button>
         </form>
 
-        <div class="text-sm text-slate-500 mt-6 text-center space-y-1">
-          <div>¿Olvidaste tu contraseña? <a routerLink="/reset-password" class="text-brand-600 font-medium">Recuperarla</a></div>
-          <div>¿No tienes cuenta? <a routerLink="/register" class="text-brand-600 font-medium">Crear cuenta</a></div>
+        <div class="text-sm text-slate-500 mt-6 text-center">
+          ¿Olvidaste tu contraseña? <a routerLink="/reset-password" class="text-brand-600 font-medium">Recuperarla</a>
         </div>
       </div>
     </div>
@@ -58,7 +58,7 @@ export class LoginComponent {
       await this.auth.signIn(this.email, this.password);
       this.router.navigate(['/actividades']);
     } catch (e: any) {
-      this.error.set(e?.message ?? 'Error al iniciar sesión');
+      this.error.set(mensajeAuthGenerico(e));
     } finally {
       this.loading.set(false);
     }
