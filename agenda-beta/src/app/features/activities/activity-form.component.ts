@@ -209,6 +209,11 @@ export class ActivityFormComponent implements OnInit {
     if (id && id !== 'nueva') {
       this.isNew = false;
       const a = await this.svc.getById(id);
+      if (a && a.estado !== 'en_cola' && a.fecha_inicio && !a.fecha_fin) {
+        // Actividad agendada legacy sin fecha_fin: autocompletar con +60min para que
+        // el input no quede vacío y el usuario pueda corregir antes de guardar.
+        a.fecha_fin = new Date(new Date(a.fecha_inicio).getTime() + 60 * 60000).toISOString();
+      }
       this.model.set(a ?? null);
       if (a) {
         const tIds = (a.tecnicos ?? []).map((x) => x.id);
@@ -287,12 +292,16 @@ export class ActivityFormComponent implements OnInit {
       this.error.set('Para asignar técnicos, el estado debe ser "Agendado con técnico", "Visita fallida" o "Completada".');
       return;
     }
-    const fe = this.fechaError();
-    if (fe) { this.error.set(fe); return; }
     if (this.modoDuracion() && m.fecha_inicio) {
       const end = new Date(new Date(m.fecha_inicio).getTime() + this.duracionMin() * 60000);
       m.fecha_fin = end.toISOString();
     }
+    if (m.estado !== 'en_cola' && (!m.fecha_inicio || !m.fecha_fin)) {
+      this.error.set('Un bloque agendado debe tener fecha y hora de inicio y de fin. Si todavía no hay horario, dejá el estado en "En cola".');
+      return;
+    }
+    const fe = this.fechaError();
+    if (fe) { this.error.set(fe); return; }
     const payload: Partial<Actividad> = {
       ...m,
       tecnicos_ids: this.tecnicosIds(),

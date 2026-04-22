@@ -26,12 +26,14 @@ export function colorDeActividad(a: Pick<Actividad, 'estado'>, _t?: Tecnico | nu
  * leyendas y spotlight cards donde no hay una actividad concreta.
  */
 export function colorDeEstado(estado: EstadoActividad): string {
+  // Paleta mid-tone (texto blanco legible). Suavizada respecto a los tonos
+  // intensos anteriores, manteniendo el hue de cada estado.
   switch (estado) {
-    case 'en_cola': return '#64748b';
-    case 'coordinado_con_cliente': return '#dc2626';
-    case 'agendado_con_tecnico': return '#0ea5e9';
-    case 'visita_fallida': return '#8b4513';
-    case 'completada': return '#5ccb5f';
+    case 'en_cola': return '#94a3b8';               // slate-400
+    case 'coordinado_con_cliente': return '#ef4444'; // red-500
+    case 'agendado_con_tecnico': return '#38bdf8';   // sky-400
+    case 'visita_fallida': return '#a16207';         // amber-700 (marrón cálido)
+    case 'completada': return '#22c55e';             // green-500
   }
 }
 
