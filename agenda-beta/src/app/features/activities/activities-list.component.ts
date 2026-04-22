@@ -164,22 +164,23 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
               <tr>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('numero')">ID {{ arrow('numero') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creador')">Usuario creador {{ arrow('creador') }}</th>
-                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creado')">Fecha creación {{ arrow('creado') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('horario')">Horario {{ arrow('horario') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('estado')">Estado {{ arrow('estado') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
+                <th class="text-left px-4 py-3">Técnicos</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo actividad {{ arrow('tipo') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('ubicacion')">Ubicación {{ arrow('ubicacion') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creado')">Fecha creación {{ arrow('creado') }}</th>
                 <th class="w-40"></th>
               </tr>
             </thead>
             <tbody>
               @if (filtradas().length === 0) {
-                <tr><td colspan="9" class="px-4 py-10 text-center text-slate-400">Sin actividades</td></tr>
+                <tr><td colspan="10" class="px-4 py-10 text-center text-slate-400">Sin actividades</td></tr>
               }
               @for (g of gruposPorDia(); track g.key) {
                 <tr class="bg-slate-100 dark:bg-slate-800 border-t-4 border-brand-500">
-                  <td colspan="9" class="px-4 py-4 text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">
+                  <td colspan="10" class="px-4 py-4 text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">
                     {{ g.label }}
                     <span class="ml-2 text-slate-400 dark:text-slate-500 font-normal text-xs">· {{ g.items.length }}</span>
                   </td>
@@ -188,7 +189,6 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                   <tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40">
                     <td class="px-4 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-400" [title]="a.id">#{{ a.numero ?? '—' }}</td>
                     <td class="px-4 py-2.5">{{ a.creado_por ? (a.creado_por.nombre + ' ' + a.creado_por.apellido) : '—' }}</td>
-                    <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.created_at ? (a.created_at | date:'dd-MM-yyyy HH:mm') : '—' }}</td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.fecha_inicio ? (a.fecha_inicio | date:'HH:mm') : '—' }}</td>
                     <td class="px-4 py-2.5">
                       <button type="button" class="chip chip-estado text-white hover:brightness-110 transition cursor-pointer"
@@ -199,6 +199,17 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                       </button>
                     </td>
                     <td class="px-4 py-2.5 font-medium">{{ a.nombre_cliente }}</td>
+                    <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">
+                      @if (a.tecnicos?.length) {
+                        <div class="flex flex-wrap gap-1">
+                          @for (t of a.tecnicos; track t.id) {
+                            <span class="chip bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">{{ t.nombre }} {{ t.apellidos }}</span>
+                          }
+                        </div>
+                      } @else {
+                        —
+                      }
+                    </td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">
                       @if (a.tipos_actividad?.length) {
                         <div class="flex flex-wrap gap-1">
@@ -211,6 +222,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                       }
                     </td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.ubicacion || '—' }}</td>
+                    <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.created_at ? (a.created_at | date:'dd-MM-yyyy HH:mm') : '—' }}</td>
                     <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                       <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', a.id]">Abrir</a>
                       <button class="text-slate-500 hover:underline" (click)="clone(a)">Clonar</button>
@@ -249,8 +261,8 @@ export class ActivitiesListComponent implements OnInit {
   pendiente: FiltrosAplicados = { ...FILTROS_VACIOS };
   aplicados = signal<FiltrosAplicados>({ ...FILTROS_VACIOS });
 
-  sortKey = signal<SortKey>('numero');
-  sortDir = signal<SortDir>('desc');
+  sortKey = signal<SortKey>('horario');
+  sortDir = signal<SortDir>('asc');
 
   diaSeleccionado = signal<string | null>(null);
   editandoId = signal<string | null>(null);
