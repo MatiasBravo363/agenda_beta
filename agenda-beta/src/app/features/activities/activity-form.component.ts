@@ -7,12 +7,13 @@ import { ActivityTypesService } from '../../core/services/activity-types.service
 import { Actividad, Tecnico, TipoActividad } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeActividad } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
+import { MultiSelectComponent, MultiSelectOption } from '../../shared/components/multi-select.component';
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
 @Component({
   selector: 'app-activity-form',
   standalone: true,
-  imports: [FormsModule, RouterLink, DireccionAutocompleteComponent, SiTieneDirective],
+  imports: [FormsModule, RouterLink, DireccionAutocompleteComponent, MultiSelectComponent, SiTieneDirective],
   template: `
     <div class="max-w-3xl mx-auto space-y-6">
       @if (!embed) {
@@ -41,23 +42,23 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
             </div>
 
             <div>
-              <label class="label">Tipo de actividad *</label>
-              <select class="input" [(ngModel)]="model()!.tipo_actividad_id" name="tipo">
-                <option [ngValue]="null">— Seleccionar —</option>
-                @for (t of tipos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
-              </select>
+              <label class="label">Tipos de actividad *</label>
+              <app-multi-select
+                [options]="tiposOptions()"
+                [selected]="tiposIds()"
+                (selectedChange)="tiposIds.set($event)"
+                placeholder="— Seleccionar uno o más —">
+              </app-multi-select>
             </div>
 
             <div>
-              <label class="label">Técnico asignado</label>
-              <select class="input" [(ngModel)]="model()!.tecnico_id" name="tecnico">
-                <option [ngValue]="null">— Sin asignar —</option>
-                @for (t of tecnicos(); track t.id) {
-                  <option [ngValue]="t.id">
-                    {{ t.nombre }} {{ t.apellidos }} · {{ t.tecnico_bermann ? 'Bermann' : t.tipo }} · {{ t.region || '—' }}
-                  </option>
-                }
-              </select>
+              <label class="label">Técnicos asignados</label>
+              <app-multi-select
+                [options]="tecnicosOptions()"
+                [selected]="tecnicosIds()"
+                (selectedChange)="tecnicosIds.set($event)"
+                placeholder="— Sin asignar —">
+              </app-multi-select>
             </div>
 
             <div>
@@ -163,11 +164,23 @@ export class ActivityFormComponent implements OnInit {
   model = signal<Partial<Actividad> | null>(null);
   tecnicos = signal<Tecnico[]>([]);
   tipos = signal<TipoActividad[]>([]);
+  tecnicosIds = signal<string[]>([]);
+  tiposIds = signal<string[]>([]);
   saving = signal(false);
   error = signal<string | null>(null);
   modoDuracion = signal(false);
   duracionMin = signal(60);
   isNew = true;
+
+  tecnicosOptions = computed<MultiSelectOption[]>(() =>
+    this.tecnicos().map((t) => ({
+      id: t.id,
+      label: `${t.nombre} ${t.apellidos} · ${t.tecnico_bermann ? 'Bermann' : t.tipo} · ${t.region || '—'}`,
+    })),
+  );
+  tiposOptions = computed<MultiSelectOption[]>(() =>
+    this.tipos().map((t) => ({ id: t.id, label: t.nombre })),
+  );
 
   fechaError = computed<string | null>(() => {
     const m = this.model();
@@ -197,6 +210,12 @@ export class ActivityFormComponent implements OnInit {
       this.isNew = false;
       const a = await this.svc.getById(id);
       this.model.set(a ?? null);
+      if (a) {
+        const tIds = (a.tecnicos ?? []).map((x) => x.id);
+        this.tecnicosIds.set(tIds.length ? tIds : a.tecnico_id ? [a.tecnico_id] : []);
+        const tpIds = (a.tipos_actividad ?? []).map((x) => x.id);
+        this.tiposIds.set(tpIds.length ? tpIds : a.tipo_actividad_id ? [a.tipo_actividad_id] : []);
+      }
     } else {
       this.isNew = true;
       const qp = this.route.snapshot.queryParamMap;
@@ -212,6 +231,8 @@ export class ActivityFormComponent implements OnInit {
         ubicacion: '',
         descripcion: '',
       });
+      this.tecnicosIds.set([]);
+      this.tiposIds.set([]);
     }
   }
 
@@ -223,7 +244,8 @@ export class ActivityFormComponent implements OnInit {
   color() {
     const m = this.model();
     if (!m?.estado) return '#94a3b8';
-    const tec = this.tecnicos().find((x) => x.id === m.tecnico_id) ?? null;
+    const principalId = this.tecnicosIds()[0] ?? null;
+    const tec = principalId ? this.tecnicos().find((x) => x.id === principalId) ?? null : null;
     return colorDeActividad({ estado: m.estado }, tec);
   }
 
@@ -259,10 +281,10 @@ export class ActivityFormComponent implements OnInit {
     const m = this.model();
     if (!m?.nombre_cliente) { this.error.set('El nombre del cliente es obligatorio'); return; }
     if (!m.estado) { this.error.set('El estado es obligatorio'); return; }
-    if (!m.tipo_actividad_id) { this.error.set('El tipo de actividad es obligatorio'); return; }
+    if (this.tiposIds().length === 0) { this.error.set('Seleccioná al menos un tipo de actividad'); return; }
     const estadosConTecnico = ['agendado_con_tecnico', 'visita_fallida', 'completada'];
-    if (m.tecnico_id && !estadosConTecnico.includes(m.estado)) {
-      this.error.set('Para asignar técnico, el estado debe ser "Agendado con técnico", "Visita fallida" o "Completada".');
+    if (this.tecnicosIds().length > 0 && !estadosConTecnico.includes(m.estado)) {
+      this.error.set('Para asignar técnicos, el estado debe ser "Agendado con técnico", "Visita fallida" o "Completada".');
       return;
     }
     const fe = this.fechaError();
@@ -271,14 +293,19 @@ export class ActivityFormComponent implements OnInit {
       const end = new Date(new Date(m.fecha_inicio).getTime() + this.duracionMin() * 60000);
       m.fecha_fin = end.toISOString();
     }
+    const payload: Partial<Actividad> = {
+      ...m,
+      tecnicos_ids: this.tecnicosIds(),
+      tipos_actividad_ids: this.tiposIds(),
+    };
     this.saving.set(true); this.error.set(null);
     try {
       if (this.isNew) {
-        const created = await this.svc.create(m);
+        const created = await this.svc.create(payload);
         if (this.embed) this.guardado.emit();
         else this.router.navigate(['/actividades', created.id]);
       } else {
-        await this.svc.update(m.id!, m);
+        await this.svc.update(m.id!, payload);
         if (this.embed) this.guardado.emit();
       }
     } catch (e: any) {

@@ -17,6 +17,7 @@ html.dark body { @apply bg-slate-950 text-slate-100; }
   .label { @apply block text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1; }
   .card { @apply bg-white rounded-xl border border-slate-200 shadow-sm dark:bg-slate-900 dark:border-slate-800; }
   .chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
+  .chip-estado { @apply min-w-[10.5rem] justify-center text-center; }
 }
 
 /* Dark-mode overrides para FullCalendar */

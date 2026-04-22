@@ -178,10 +178,10 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                 <tr><td colspan="9" class="px-4 py-10 text-center text-slate-400">Sin actividades</td></tr>
               }
               @for (g of gruposPorDia(); track g.key) {
-                <tr class="bg-slate-50/80 dark:bg-slate-800/60 border-t-2 border-slate-200 dark:border-slate-700">
-                  <td colspan="9" class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                <tr class="bg-slate-100 dark:bg-slate-800 border-t-4 border-brand-500">
+                  <td colspan="9" class="px-4 py-4 text-sm font-semibold tracking-wide text-slate-700 dark:text-slate-200">
                     {{ g.label }}
-                    <span class="ml-2 text-slate-400 font-normal normal-case">· {{ g.items.length }}</span>
+                    <span class="ml-2 text-slate-400 dark:text-slate-500 font-normal text-xs">· {{ g.items.length }}</span>
                   </td>
                 </tr>
                 @for (a of g.items; track a.id) {
@@ -191,7 +191,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.created_at ? (a.created_at | date:'dd-MM-yyyy HH:mm') : '—' }}</td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.fecha_inicio ? (a.fecha_inicio | date:'HH:mm') : '—' }}</td>
                     <td class="px-4 py-2.5">
-                      <button type="button" class="chip text-white hover:brightness-110 transition cursor-pointer"
+                      <button type="button" class="chip chip-estado text-white hover:brightness-110 transition cursor-pointer"
                               [style.background]="color(a)"
                               (click)="abrirEdicion(a); $event.stopPropagation()"
                               title="Editar actividad">
@@ -199,7 +199,17 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                       </button>
                     </td>
                     <td class="px-4 py-2.5 font-medium">{{ a.nombre_cliente }}</td>
-                    <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.tipo_actividad?.nombre || '—' }}</td>
+                    <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">
+                      @if (a.tipos_actividad?.length) {
+                        <div class="flex flex-wrap gap-1">
+                          @for (t of a.tipos_actividad; track t.id) {
+                            <span class="chip bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">{{ t.nombre }}</span>
+                          }
+                        </div>
+                      } @else {
+                        {{ a.tipo_actividad?.nombre || '—' }}
+                      }
+                    </td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.ubicacion || '—' }}</td>
                     <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                       <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', a.id]">Abrir</a>
