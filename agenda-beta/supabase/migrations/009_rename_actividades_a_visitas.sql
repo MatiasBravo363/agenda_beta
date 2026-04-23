@@ -160,10 +160,8 @@ do $$ declare _renames text[][] := array[
   ['visitas',             'actividades_update',       'visitas_update'],
   ['visitas',             'actividades_delete',       'visitas_delete'],
 
-  ['visitas_historial',   'historial_select',         'historial_select'],
-  ['visitas_historial',   'historial_insert',         'historial_insert'],
-  ['visitas_historial',   'historial_update',         'historial_update'],
-  ['visitas_historial',   'historial_delete',         'historial_delete'],
+  -- historial_* ya tenía el nombre final desde migración 007 (sin prefijo actividades_).
+  -- Dejamos las entradas por completitud pero el guard src != dst las salta.
 
   ['tipos_visita',        'tipos_actividad_select',   'tipos_visita_select'],
   ['tipos_visita',        'tipos_actividad_insert',   'tipos_visita_insert'],
@@ -183,8 +181,12 @@ do $$ declare _renames text[][] := array[
 declare r text[];
 begin
   foreach r slice 1 in array _renames loop
-    if exists (select 1 from pg_policies
-               where schemaname='public' and tablename = r[1] and policyname = r[2]) then
+    -- Skip identity renames (src == dst) y renames donde el destino ya existe.
+    if r[2] <> r[3]
+       and exists (select 1 from pg_policies
+                   where schemaname='public' and tablename = r[1] and policyname = r[2])
+       and not exists (select 1 from pg_policies
+                       where schemaname='public' and tablename = r[1] and policyname = r[3]) then
       execute format('alter policy %I on public.%I rename to %I', r[2], r[1], r[3]);
     end if;
   end loop;
