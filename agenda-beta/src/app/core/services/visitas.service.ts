@@ -126,30 +126,29 @@ export class VisitasService {
     if (error) throw error;
   }
 
-  /** Clona una visita (la original suele quedar en 'visita_fallida'). */
-  async clone(originalId: string, nuevoEstado: EstadoVisita = 'coordinado_con_cliente'): Promise<Visita> {
+  /**
+   * Clona una visita conservando todos los datos originales (cliente, estado,
+   * ubicación, descripción, técnicos, actividades). Las nuevas fechas son
+   * obligatorias y las provee el usuario desde el modal de clonado.
+   */
+  async clone(originalId: string, fechaInicio: string, fechaFin: string): Promise<Visita> {
     const original = await this.getById(originalId);
     if (!original) throw new Error('Visita original no encontrada');
-    const {
-      id: _id,
-      created_at: _c,
-      updated_at: _u,
-      tecnico: _t,
-      actividad: _a,
-      tecnicos,
-      actividades,
-      ...rest
-    } = original;
-    const actividadesIds = (actividades ?? []).map((t) => t.id);
+    const tecnicosIds = (original.tecnicos ?? []).map((t) => t.id);
+    const actividadesIds = (original.actividades ?? []).map((a) => a.id);
     const payload: Partial<Visita> = {
-      ...rest,
-      estado: nuevoEstado,
+      nombre_cliente: original.nombre_cliente,
+      estado: original.estado,
+      ubicacion: original.ubicacion,
+      ubicacion_lat: original.ubicacion_lat,
+      ubicacion_lng: original.ubicacion_lng,
+      descripcion: original.descripcion,
       parent_visita_id: original.id,
-      tecnico_id: null,
-      tecnicos_ids: [],
+      tecnicos_ids: tecnicosIds,
       actividades_ids: actividadesIds,
-      fecha_inicio: null,
-      fecha_fin: null,
+      fecha_inicio: fechaInicio,
+      fecha_fin: fechaFin,
+      cantidad_pendiente: 1,
     };
     return this.create(payload);
   }

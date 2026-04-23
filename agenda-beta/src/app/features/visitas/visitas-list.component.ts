@@ -8,6 +8,7 @@ import { colorDeVisita, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/
 import { TechniciansService } from '../../core/services/technicians.service';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
 import { VisitaFormComponent } from './visita-form.component';
+import { VisitaClonarModalComponent } from '../../shared/components/visita-clonar-modal.component';
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
 interface GrupoDia {
@@ -49,7 +50,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
 @Component({
   selector: 'app-visitas-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, VisitaFormComponent, SiTieneDirective],
+  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, VisitaFormComponent, VisitaClonarModalComponent, SiTieneDirective],
   template: `
     <div class="space-y-4">
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -249,6 +250,15 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
         </div>
       </div>
     }
+
+    <!-- Modal clonar -->
+    @if (clonandoVisita(); as v) {
+      <app-visita-clonar-modal
+        [visita]="v"
+        (cancelar)="clonandoVisita.set(null)"
+        (confirmado)="onClonarConfirmado($event)">
+      </app-visita-clonar-modal>
+    }
   `,
 })
 export class VisitasListComponent implements OnInit {
@@ -266,6 +276,7 @@ export class VisitasListComponent implements OnInit {
 
   diaSeleccionado = signal<string | null>(null);
   editandoId = signal<string | null>(null);
+  clonandoVisita = signal<Visita | null>(null);
   private hoyDate = new Date();
   mesVisible = signal<{ year: number; month: number }>({
     year: this.hoyDate.getFullYear(),
@@ -473,10 +484,21 @@ export class VisitasListComponent implements OnInit {
 
   color(a: Visita) { return colorDeVisita(a, a.tecnico); }
 
-  async clone(a: Visita) {
-    if (!confirm(`¿Clonar visita de "${a.nombre_cliente}"?`)) return;
-    await this.svc.clone(a.id);
-    await this.reload();
+  clone(a: Visita) {
+    this.clonandoVisita.set(a);
+  }
+
+  async onClonarConfirmado(ev: { fecha_inicio: string; fecha_fin: string }) {
+    const v = this.clonandoVisita();
+    if (!v) return;
+    try {
+      await this.svc.clone(v.id, ev.fecha_inicio, ev.fecha_fin);
+      this.clonandoVisita.set(null);
+      await this.reload();
+    } catch (e: any) {
+      alert(e?.message ?? 'No se pudo clonar la visita');
+      this.clonandoVisita.set(null);
+    }
   }
 
   async remove(a: Visita) {
