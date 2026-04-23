@@ -21,6 +21,6 @@ export const publicGuard: CanActivateFn = async () => {
   const router = inject(Router);
   await sb.client.auth.getSession();
   if (!auth.isAuthenticated()) return true;
-  router.navigate(['/actividades']);
+  router.navigate(['/visitas']);
   return false;
 };

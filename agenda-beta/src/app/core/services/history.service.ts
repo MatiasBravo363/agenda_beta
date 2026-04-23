@@ -1,19 +1,19 @@
 import { Injectable, inject } from '@angular/core';
 import { SupabaseService } from '../supabase/supabase.service';
-import { ActividadHistorial } from '../models';
+import { VisitaHistorial } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class HistoryService {
   private sb = inject(SupabaseService);
-  private readonly table = 'actividades_historial';
+  private readonly table = 'visitas_historial';
 
-  async list(): Promise<ActividadHistorial[]> {
+  async list(): Promise<VisitaHistorial[]> {
     const { data, error } = await this.sb.client
       .from(this.table)
-      .select('*, actividad:actividades(*, tecnico:tecnicos(*), tipo_actividad:tipos_actividad(*)), usuario:usuarios(*)')
+      .select('*, visita:visitas(*, tecnico:tecnicos(*), tipo_visita:tipos_visita(*)), usuario:usuarios(*)')
       .order('created_at', { ascending: false })
       .limit(500);
     if (error) throw error;
-    return (data ?? []) as unknown as ActividadHistorial[];
+    return (data ?? []) as unknown as VisitaHistorial[];
   }
 }

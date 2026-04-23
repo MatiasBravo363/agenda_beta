@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Repository layout
 
 - [agenda-beta/](agenda-beta/) — Angular 21 app (the actual product). All npm/ng commands must be run from here.
-- [agenda-beta/supabase/](agenda-beta/supabase/) — SQL migrations (`001_init.sql` …) and `seed.sql`. No Supabase CLI project linked; migrations are applied manually in the Supabase dashboard.
+- [agenda-beta/supabase/](agenda-beta/supabase/) — `migrations/` (`001_init.sql` … `009_rename_actividades_a_visitas.sql`) and `seed.sql`. No Supabase CLI project linked; migrations are applied manually in the Supabase dashboard.
 - [SOP/](SOP/) — Standard operating procedures. [SOP/CLAUDE.md](SOP/CLAUDE.md) defines the senior-dev agent role; [SOP/iteraciones/](SOP/iteraciones/) logs each `/modulo` iteration (`YYYY-MM-DD-<modulo>.md`).
 - [.claude/skills/](.claude/skills/) and [.agents/skills/](.agents/skills/) — project-scoped skills, including `/modulo` (the main iteration workflow).
 
@@ -24,28 +24,31 @@ Angular 21 standalone components with **signals** (zoneless) + Tailwind 3 + Full
 
 ## Architecture
 
-Routing is declared in [agenda-beta/src/app/app.routes.ts](agenda-beta/src/app/app.routes.ts). Everything behind `authGuard` renders inside `MainLayoutComponent` (sidebar + content). Auth routes (`login`, `register`, `reset-password`) use `publicGuard`. Root redirects to `/actividades/lista`.
+Routing is declared in [agenda-beta/src/app/app.routes.ts](agenda-beta/src/app/app.routes.ts). Everything behind `authGuard` renders inside `MainLayoutComponent` (sidebar + content). Auth routes (`login`, `reset-password`) use `publicGuard`. Root redirects to `/visitas/lista`. Los paths antiguos `/actividades*` y `/tipos-actividad` siguen funcionando vía redirects.
 
 Code is organized as:
 
 - [agenda-beta/src/app/core/](agenda-beta/src/app/core/) — cross-cutting concerns
   - `auth/` — guards + auth service backed by Supabase Auth (email/password).
   - `supabase/` — single `SupabaseService` wrapper; feature services consume it with async/await.
-  - `services/` — one service per domain table (`activities`, `technicians`, `activity-types`, `users`, `history`).
-  - `models/index.ts` — **all TS domain types live here** (single barrel).
-  - `utils/estado.util.ts` — **source of truth for activity state labels and colors.** See business rule below.
+  - `services/` — one service per domain table (`visitas`, `technicians`, `tipos-visita`, `users`, `history`, `permisos`, `tipos-usuario`).
+  - `models/index.ts` — **all TS domain types live here** (single barrel): `Visita`, `VisitaHistorial`, `TipoVisita`, `EstadoVisita`, `Tecnico`, `Usuario`, `TipoUsuario`, `Permiso`, `PermisoCodigo`.
+  - `utils/estado.util.ts` — **source of truth for visit state labels and colors.** See business rule below.
+  - `error/chunk-reload.handler.ts` — global `ErrorHandler` que auto-reloadea ante "Failed to fetch dynamically imported module" post-deploy.
   - `theme/` — dark mode handling.
-- [agenda-beta/src/app/features/](agenda-beta/src/app/features/) — one folder per top-level route: `activities`, `activity-types`, `auth`, `configuracion`, `dashboard`, `history`, `technicians`, `users`. Components are lazy-loaded via `loadComponent`/`loadChildren`.
-- [agenda-beta/src/app/shared/](agenda-beta/src/app/shared/) — `layouts/main-layout.component.ts` and reusable `components/`.
+- [agenda-beta/src/app/features/](agenda-beta/src/app/features/) — one folder per top-level route: `visitas`, `tipos-visita`, `auth`, `configuracion`, `dashboard`, `history`, `technicians`, `tipos-usuario`, `users`. Components are lazy-loaded via `loadComponent`/`loadChildren`.
+- [agenda-beta/src/app/shared/](agenda-beta/src/app/shared/) — `layouts/main-layout.component.ts` y reusable `components/` (incluye `multi-select.component.ts` y `direccion-autocomplete.component.ts`).
 
 ## Business rules that shape the code
 
 From [`project_agenda_beta`](../../.claude/projects/.../memory/project_agenda_beta.md) memory and the actual domain logic:
 
-- **MVP has a single full-access role.** Technicians are a master table, not app users. Do not add role/permission logic.
-- **Activity state → color is derived in the front end**, never stored in DB. All derivation goes through [agenda-beta/src/app/core/utils/estado.util.ts](agenda-beta/src/app/core/utils/estado.util.ts) (`colorDeEstado`, `colorDeActividad`, `ESTADO_LABEL`, `ESTADOS`). When adding a new state, update this file first.
-- **Cloning a failed visit** uses `parent_activity_id` on the activity (see `005_actividades_geo.sql` / `006_actividades_numero_cantidad.sql`). Preserve this field on clone flows.
-- **Technician has `tecnico_bermann` (internal/external) and `region` flags** — both feed into visibility rules in lists/calendar.
+- **Permissions are code-based, enforced in two layers.** Routes are gated with `permisoGuard('<codigo>')` (see [agenda-beta/src/app/core/auth/permiso.guard.ts](agenda-beta/src/app/core/auth/permiso.guard.ts)); the DB enforces the same via RLS policies tied to `tipos_usuario` (migration `007`). Use existing codes (`visitas.ver`, `tipos_visita.gestionar`, …) — do not invent ad-hoc checks in components.
+- **Dominio renombrado de "actividad" a "visita" (migración 009).** Tablas DB: `visitas`, `visitas_historial`, `tipos_visita`, `visita_tecnicos`, `visita_tipos_visita`. Interfaces TS: `Visita`, `TipoVisita`, `VisitaHistorial`, `EstadoVisita`. Los viejos bookmarks `/actividades/*` siguen vivos vía redirect en [app.routes.ts](agenda-beta/src/app/app.routes.ts).
+- **Visit state → color is derived in the front end**, never stored in DB. All derivation goes through [agenda-beta/src/app/core/utils/estado.util.ts](agenda-beta/src/app/core/utils/estado.util.ts) (`colorDeEstado`, `colorDeVisita`, `ESTADO_LABEL`, `ESTADOS`). When adding a new state, update this file first.
+- **Cloning a failed visit** uses `parent_visita_id` on the visita (ver [visitas.service.ts](agenda-beta/src/app/core/services/visitas.service.ts) `clone()`). Preserve this field on clone flows.
+- **Una visita puede tener múltiples técnicos y múltiples tipos** vía pivotes `visita_tecnicos` y `visita_tipos_visita` (migración 008). Los FKs simples `tecnico_id` y `tipo_visita_id` en `visitas` se mantienen como "principal" (primer elemento del array) para retrocompat con vistas legacy (calendar, dashboard, exports).
+- **Technician has `tecnico_bermann` (internal/external) and `region` flags** — both feed into visibility rules en lists/calendar.
 
 ## Conventions
 

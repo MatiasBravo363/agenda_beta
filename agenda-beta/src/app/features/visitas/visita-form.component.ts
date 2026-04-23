@@ -1,30 +1,30 @@
 import { Component, computed, EventEmitter, inject, Input, OnInit, Output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ActivitiesService } from '../../core/services/activities.service';
+import { VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
-import { ActivityTypesService } from '../../core/services/activity-types.service';
-import { Actividad, Tecnico, TipoActividad } from '../../core/models';
-import { ESTADO_LABEL, ESTADOS, colorDeActividad } from '../../core/utils/estado.util';
+import { TiposVisitaService } from '../../core/services/tipos-visita.service';
+import { Tecnico, TipoVisita, Visita } from '../../core/models';
+import { ESTADO_LABEL, ESTADOS, colorDeVisita } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { MultiSelectComponent, MultiSelectOption } from '../../shared/components/multi-select.component';
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
 @Component({
-  selector: 'app-activity-form',
+  selector: 'app-visita-form',
   standalone: true,
   imports: [FormsModule, RouterLink, DireccionAutocompleteComponent, MultiSelectComponent, SiTieneDirective],
   template: `
     <div class="max-w-3xl mx-auto space-y-6">
       @if (!embed) {
-        <a routerLink="/actividades" class="text-sm text-slate-500 hover:text-slate-700">← Volver a actividades</a>
+        <a routerLink="/visitas" class="text-sm text-slate-500 hover:text-slate-700">← Volver a visitas</a>
       }
 
       @if (model()) {
         <div class="card p-6 space-y-6">
           <div class="flex items-center gap-3">
             <span class="inline-block w-3.5 h-3.5 rounded-full" [style.background]="color()"></span>
-            <div class="text-xl font-bold">{{ isNew ? 'Nueva actividad' : model()!.nombre_cliente }}</div>
+            <div class="text-xl font-bold">{{ isNew ? 'Nueva visita' : model()!.nombre_cliente }}</div>
             <span class="chip bg-slate-100 text-slate-700 ml-auto">{{ estadoLabel() }}</span>
           </div>
 
@@ -42,7 +42,7 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
             </div>
 
             <div>
-              <label class="label">Tipos de actividad *</label>
+              <label class="label">Tipos de visita *</label>
               <app-multi-select
                 [options]="tiposOptions()"
                 [selected]="tiposIds()"
@@ -132,12 +132,12 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
           <div class="flex gap-2 justify-end pt-4 border-t border-slate-100">
             @if (!isNew) {
               <button class="btn-secondary" (click)="clone()">Clonar</button>
-              <button *appSiTiene="'actividades.borrar'" class="btn-danger" (click)="remove()">Eliminar</button>
+              <button *appSiTiene="'visitas.borrar'" class="btn-danger" (click)="remove()">Eliminar</button>
             }
             @if (embed) {
               <button class="btn-secondary" (click)="cancel()">Cancelar</button>
             } @else {
-              <button class="btn-secondary" routerLink="/actividades">Cancelar</button>
+              <button class="btn-secondary" routerLink="/visitas">Cancelar</button>
             }
             <button class="btn-primary" (click)="save()" [disabled]="saving()">
               {{ saving() ? 'Guardando…' : 'Guardar' }}
@@ -148,10 +148,10 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
     </div>
   `,
 })
-export class ActivityFormComponent implements OnInit {
-  private svc = inject(ActivitiesService);
+export class VisitaFormComponent implements OnInit {
+  private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
-  private typeSvc = inject(ActivityTypesService);
+  private typeSvc = inject(TiposVisitaService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -161,9 +161,9 @@ export class ActivityFormComponent implements OnInit {
 
   get embed(): boolean { return !!this.idEmbed; }
 
-  model = signal<Partial<Actividad> | null>(null);
+  model = signal<Partial<Visita> | null>(null);
   tecnicos = signal<Tecnico[]>([]);
-  tipos = signal<TipoActividad[]>([]);
+  tipos = signal<TipoVisita[]>([]);
   tecnicosIds = signal<string[]>([]);
   tiposIds = signal<string[]>([]);
   saving = signal(false);
@@ -210,7 +210,7 @@ export class ActivityFormComponent implements OnInit {
       this.isNew = false;
       const a = await this.svc.getById(id);
       if (a && a.estado !== 'en_cola' && a.fecha_inicio && !a.fecha_fin) {
-        // Actividad agendada legacy sin fecha_fin: autocompletar con +60min para que
+        // Visita agendada legacy sin fecha_fin: autocompletar con +60min para que
         // el input no quede vacío y el usuario pueda corregir antes de guardar.
         a.fecha_fin = new Date(new Date(a.fecha_inicio).getTime() + 60 * 60000).toISOString();
       }
@@ -218,8 +218,8 @@ export class ActivityFormComponent implements OnInit {
       if (a) {
         const tIds = (a.tecnicos ?? []).map((x) => x.id);
         this.tecnicosIds.set(tIds.length ? tIds : a.tecnico_id ? [a.tecnico_id] : []);
-        const tpIds = (a.tipos_actividad ?? []).map((x) => x.id);
-        this.tiposIds.set(tpIds.length ? tpIds : a.tipo_actividad_id ? [a.tipo_actividad_id] : []);
+        const tpIds = (a.tipos_visita ?? []).map((x) => x.id);
+        this.tiposIds.set(tpIds.length ? tpIds : a.tipo_visita_id ? [a.tipo_visita_id] : []);
       }
     } else {
       this.isNew = true;
@@ -229,7 +229,7 @@ export class ActivityFormComponent implements OnInit {
       this.model.set({
         nombre_cliente: '',
         estado: 'en_cola',
-        tipo_actividad_id: null,
+        tipo_visita_id: null,
         tecnico_id: null,
         fecha_inicio: start ?? null,
         fecha_fin: end ?? null,
@@ -251,7 +251,7 @@ export class ActivityFormComponent implements OnInit {
     if (!m?.estado) return '#94a3b8';
     const principalId = this.tecnicosIds()[0] ?? null;
     const tec = principalId ? this.tecnicos().find((x) => x.id === principalId) ?? null : null;
-    return colorDeActividad({ estado: m.estado }, tec);
+    return colorDeVisita({ estado: m.estado }, tec);
   }
 
   toLocal(v?: string | null): string {
@@ -286,7 +286,7 @@ export class ActivityFormComponent implements OnInit {
     const m = this.model();
     if (!m?.nombre_cliente) { this.error.set('El nombre del cliente es obligatorio'); return; }
     if (!m.estado) { this.error.set('El estado es obligatorio'); return; }
-    if (this.tiposIds().length === 0) { this.error.set('Seleccioná al menos un tipo de actividad'); return; }
+    if (this.tiposIds().length === 0) { this.error.set('Seleccioná al menos un tipo de visita'); return; }
     const estadosConTecnico = ['agendado_con_tecnico', 'visita_fallida', 'completada'];
     if (this.tecnicosIds().length > 0 && !estadosConTecnico.includes(m.estado)) {
       this.error.set('Para asignar técnicos, el estado debe ser "Agendado con técnico", "Visita fallida" o "Completada".');
@@ -302,17 +302,17 @@ export class ActivityFormComponent implements OnInit {
     }
     const fe = this.fechaError();
     if (fe) { this.error.set(fe); return; }
-    const payload: Partial<Actividad> = {
+    const payload: Partial<Visita> = {
       ...m,
       tecnicos_ids: this.tecnicosIds(),
-      tipos_actividad_ids: this.tiposIds(),
+      tipos_visita_ids: this.tiposIds(),
     };
     this.saving.set(true); this.error.set(null);
     try {
       if (this.isNew) {
         const created = await this.svc.create(payload);
         if (this.embed) this.guardado.emit();
-        else this.router.navigate(['/actividades', created.id]);
+        else this.router.navigate(['/visitas', created.id]);
       } else {
         await this.svc.update(m.id!, payload);
         if (this.embed) this.guardado.emit();
@@ -328,16 +328,16 @@ export class ActivityFormComponent implements OnInit {
 
   async remove() {
     const m = this.model(); if (!m?.id) return;
-    if (!confirm('¿Eliminar actividad?')) return;
+    if (!confirm('¿Eliminar visita?')) return;
     await this.svc.remove(m.id);
     if (this.embed) this.guardado.emit();
-    else this.router.navigate(['/actividades']);
+    else this.router.navigate(['/visitas']);
   }
 
   async clone() {
     const m = this.model(); if (!m?.id) return;
     const created = await this.svc.clone(m.id);
     if (this.embed) this.guardado.emit();
-    else this.router.navigate(['/actividades', created.id]);
+    else this.router.navigate(['/visitas', created.id]);
   }
 }

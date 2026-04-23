@@ -17,7 +17,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./shared/layouts/main-layout.component').then((m) => m.MainLayoutComponent),
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'actividades' },
+      { path: '', pathMatch: 'full', redirectTo: 'visitas' },
 
       {
         path: 'dashboard',
@@ -26,33 +26,37 @@ export const routes: Routes = [
       },
 
       {
-        path: 'actividades',
+        path: 'visitas',
         loadComponent: () =>
-          import('./features/activities/activities-shell.component').then((m) => m.ActivitiesShellComponent),
+          import('./features/visitas/visitas-shell.component').then((m) => m.VisitasShellComponent),
         children: [
           { path: '', pathMatch: 'full', redirectTo: 'lista' },
           {
             path: 'lista',
             loadComponent: () =>
-              import('./features/activities/activities-list.component').then((m) => m.ActivitiesListComponent),
+              import('./features/visitas/visitas-list.component').then((m) => m.VisitasListComponent),
           },
           {
             path: 'calendario',
             loadComponent: () =>
-              import('./features/activities/activities-calendar.component').then((m) => m.ActivitiesCalendarComponent),
+              import('./features/visitas/visitas-calendar.component').then((m) => m.VisitasCalendarComponent),
           },
           {
             path: 'nueva',
             loadComponent: () =>
-              import('./features/activities/activity-form.component').then((m) => m.ActivityFormComponent),
+              import('./features/visitas/visita-form.component').then((m) => m.VisitaFormComponent),
           },
           {
             path: ':id',
             loadComponent: () =>
-              import('./features/activities/activity-form.component').then((m) => m.ActivityFormComponent),
+              import('./features/visitas/visita-form.component').then((m) => m.VisitaFormComponent),
           },
         ],
       },
+
+      // Redirects legacy: bookmarks viejos de /actividades/* siguen funcionando.
+      { path: 'actividades', pathMatch: 'full', redirectTo: 'visitas' },
+      { path: 'actividades/:rest', redirectTo: 'visitas/:rest' },
 
       {
         path: 'tecnicos',
@@ -60,10 +64,13 @@ export const routes: Routes = [
           import('./features/technicians/technicians.component').then((m) => m.TechniciansComponent),
       },
       {
-        path: 'tipos-actividad',
+        path: 'tipos-visita',
         loadComponent: () =>
-          import('./features/activity-types/activity-types.component').then((m) => m.ActivityTypesComponent),
+          import('./features/tipos-visita/tipos-visita.component').then((m) => m.TiposVisitaComponent),
       },
+      // Redirect legacy
+      { path: 'tipos-actividad', pathMatch: 'full', redirectTo: 'tipos-visita' },
+
       {
         path: 'usuarios',
         canActivate: [permisoGuard('usuarios.ver')],

@@ -13,7 +13,7 @@ import { mensajeAuthGenerico } from '../../core/auth/error-messages.util';
       <div class="card w-full max-w-md p-8">
         <div class="mb-8">
           <div class="text-2xl font-extrabold tracking-tight">Agenda<span class="text-brand-600">_BETA</span></div>
-          <p class="text-slate-500 text-sm mt-1">Gestión de actividades de técnicos en terreno.</p>
+          <p class="text-slate-500 text-sm mt-1">Gestión de visitas de técnicos en terreno.</p>
         </div>
 
         <form (ngSubmit)="submit()" class="space-y-4">
@@ -56,7 +56,7 @@ export class LoginComponent {
     this.error.set(null);
     try {
       await this.auth.signIn(this.email, this.password);
-      this.router.navigate(['/actividades']);
+      this.router.navigate(['/visitas']);
     } catch (e: any) {
       this.error.set(mensajeAuthGenerico(e));
     } finally {

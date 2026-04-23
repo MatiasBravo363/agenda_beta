@@ -2,22 +2,22 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { HistoryService } from '../../core/services/history.service';
-import { ActividadHistorial } from '../../core/models';
+import { VisitaHistorial } from '../../core/models';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
-type SortKey = 'id' | 'usuario' | 'cliente' | 'actividad' | 'tecnico' | 'tipo';
+type SortKey = 'id' | 'usuario' | 'cliente' | 'visita' | 'tecnico' | 'tipo';
 type SortDir = 'asc' | 'desc';
 
 interface Row {
   id: string;
   idShort: string;
-  actividadId: string | null;
+  visitaId: string | null;
   usuario: string;
   cliente: string;
-  actividad: string;
+  visita: string;
   tecnico: string;
   tipo: string;
-  raw: ActividadHistorial;
+  raw: VisitaHistorial;
 }
 
 @Component({
@@ -25,7 +25,7 @@ interface Row {
   standalone: true,
   imports: [FormsModule, RouterLink, PageHeaderComponent],
   template: `
-    <app-page-header title="Historial de actividades" subtitle="Cambios de estado de cada actividad con usuario y fecha."></app-page-header>
+    <app-page-header title="Historial de visitas" subtitle="Cambios de estado de cada visita con usuario y fecha."></app-page-header>
 
     <div class="p-8 space-y-4">
       <div class="card p-4">
@@ -45,10 +45,10 @@ interface Row {
             </select>
           </div>
           <div>
-            <label class="label">Actividad</label>
-            <select class="input" [ngModel]="fActividad()" (ngModelChange)="fActividad.set($event)">
+            <label class="label">Visita</label>
+            <select class="input" [ngModel]="fVisita()" (ngModelChange)="fVisita.set($event)">
               <option [ngValue]="''">Todas</option>
-              @for (v of opts().actividades; track v) { <option [ngValue]="v">{{ v }}</option> }
+              @for (v of opts().visitas; track v) { <option [ngValue]="v">{{ v }}</option> }
             </select>
           </div>
           <div>
@@ -59,7 +59,7 @@ interface Row {
             </select>
           </div>
           <div>
-            <label class="label">Tipo actividad</label>
+            <label class="label">Tipo visita</label>
             <select class="input" [ngModel]="fTipo()" (ngModelChange)="fTipo.set($event)">
               <option [ngValue]="''">Todos</option>
               @for (v of opts().tipos; track v) { <option [ngValue]="v">{{ v }}</option> }
@@ -78,9 +78,9 @@ interface Row {
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('id')">ID {{ arrow('id') }}</th>
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('usuario')">Usuario creador {{ arrow('usuario') }}</th>
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('actividad')">Actividad {{ arrow('actividad') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('visita')">Visita {{ arrow('visita') }}</th>
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tecnico')">Técnico {{ arrow('tecnico') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo actividad {{ arrow('tipo') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo visita {{ arrow('tipo') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -90,9 +90,9 @@ interface Row {
                 <td class="px-4 py-2.5">{{ r.usuario }}</td>
                 <td class="px-4 py-2.5">{{ r.cliente }}</td>
                 <td class="px-4 py-2.5">
-                  @if (r.actividadId) {
-                    <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', r.actividadId]">{{ r.actividad }}</a>
-                  } @else { {{ r.actividad }} }
+                  @if (r.visitaId) {
+                    <a class="text-brand-600 hover:underline" [routerLink]="['/visitas', r.visitaId]">{{ r.visita }}</a>
+                  } @else { {{ r.visita }} }
                 </td>
                 <td class="px-4 py-2.5">{{ r.tecnico }}</td>
                 <td class="px-4 py-2.5">{{ r.tipo }}</td>
@@ -112,7 +112,7 @@ export class HistoryComponent implements OnInit {
 
   fUsuario = signal('');
   fCliente = signal('');
-  fActividad = signal('');
+  fVisita = signal('');
   fTecnico = signal('');
   fTipo = signal('');
 
@@ -125,20 +125,20 @@ export class HistoryComponent implements OnInit {
     return {
       usuarios: uniq(all.map((r) => r.usuario)),
       clientes: uniq(all.map((r) => r.cliente)),
-      actividades: uniq(all.map((r) => r.actividad)),
+      visitas: uniq(all.map((r) => r.visita)),
       tecnicos: uniq(all.map((r) => r.tecnico)),
       tipos: uniq(all.map((r) => r.tipo)),
     };
   });
 
   filtered = computed<Row[]>(() => {
-    const u = this.fUsuario(), c = this.fCliente(), a = this.fActividad(), t = this.fTecnico(), tp = this.fTipo();
+    const u = this.fUsuario(), c = this.fCliente(), a = this.fVisita(), t = this.fTecnico(), tp = this.fTipo();
     const key = this.sortKey(), mult = this.sortDir() === 'asc' ? 1 : -1;
     return [...this.rows()]
       .filter((r) =>
         (!u || r.usuario === u) &&
         (!c || r.cliente === c) &&
-        (!a || r.actividad === a) &&
+        (!a || r.visita === a) &&
         (!t || r.tecnico === t) &&
         (!tp || r.tipo === tp)
       )
@@ -156,17 +156,17 @@ export class HistoryComponent implements OnInit {
     this.rows.set(data.map((h) => this.toRow(h)));
   }
 
-  private toRow(h: ActividadHistorial): Row {
-    const act = h.actividad;
-    const tec = act?.tecnico ? `${act.tecnico.nombre} ${act.tecnico.apellidos}` : '—';
-    const tipo = act?.tipo_actividad?.nombre ?? '—';
+  private toRow(h: VisitaHistorial): Row {
+    const v = h.visita;
+    const tec = v?.tecnico ? `${v.tecnico.nombre} ${v.tecnico.apellidos}` : '—';
+    const tipo = v?.tipo_visita?.nombre ?? '—';
     return {
       id: h.id,
       idShort: h.id.slice(0, 8),
-      actividadId: act?.id ?? null,
+      visitaId: v?.id ?? null,
       usuario: h.usuario ? `${h.usuario.nombre} ${h.usuario.apellido}` : '—',
-      cliente: act?.nombre_cliente ?? '—',
-      actividad: act ? `#${act.id.slice(0, 8)}` : '—',
+      cliente: v?.nombre_cliente ?? '—',
+      visita: v ? `#${v.id.slice(0, 8)}` : '—',
       tecnico: tec,
       tipo,
       raw: h,
@@ -188,7 +188,7 @@ export class HistoryComponent implements OnInit {
   }
 
   clearFilters() {
-    this.fUsuario.set(''); this.fCliente.set(''); this.fActividad.set('');
+    this.fUsuario.set(''); this.fCliente.set(''); this.fVisita.set('');
     this.fTecnico.set(''); this.fTipo.set('');
   }
 }

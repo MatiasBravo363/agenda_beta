@@ -12,7 +12,7 @@ export function permisoGuard(codigo: PermisoCodigo): CanActivateFn {
       await new Promise((r) => setTimeout(r, 300));
     }
     if (permisos.tiene(codigo)) return true;
-    router.navigate(['/actividades']);
+    router.navigate(['/visitas']);
     return false;
   };
 }

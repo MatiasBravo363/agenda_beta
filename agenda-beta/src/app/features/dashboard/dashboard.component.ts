@@ -3,10 +3,10 @@ import { FormsModule } from '@angular/forms';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsOption } from 'echarts';
 
-import { ActivitiesService } from '../../core/services/activities.service';
+import { VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
-import { ActivityTypesService } from '../../core/services/activity-types.service';
-import { Actividad, Tecnico, TipoActividad } from '../../core/models';
+import { TiposVisitaService } from '../../core/services/tipos-visita.service';
+import { Visita, Tecnico, TipoVisita } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeEstado } from '../../core/utils/estado.util';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
@@ -24,7 +24,7 @@ const TIPO_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#a
   standalone: true,
   imports: [FormsModule, NgxEchartsDirective, PageHeaderComponent],
   template: `
-    <app-page-header title="Dashboard" subtitle="Vista global de actividades con filtros y gráficos."></app-page-header>
+    <app-page-header title="Dashboard" subtitle="Vista global de visitas con filtros y gráficos."></app-page-header>
 
     <div class="p-8 space-y-6">
       <!-- Filtros -->
@@ -73,7 +73,7 @@ const TIPO_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#a
           <div>
             <div class="text-xs uppercase tracking-wider text-slate-500">Global</div>
             <div class="text-4xl font-bold mt-1">{{ total() }}</div>
-            <div class="text-xs text-slate-500 mt-1">Actividades en el rango</div>
+            <div class="text-xs text-slate-500 mt-1">Visitaes en el rango</div>
           </div>
           <div class="text-right">
             <div class="text-sm text-slate-500">vs periodo anterior</div>
@@ -111,20 +111,20 @@ const TIPO_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#a
 
       <!-- Gráfico líneas -->
       <div class="card p-4">
-        <div class="text-sm font-semibold text-slate-700 mb-2">Actividades por fecha (por estado)</div>
+        <div class="text-sm font-semibold text-slate-700 mb-2">Visitaes por fecha (por estado)</div>
         <div echarts [options]="chartOptions()" class="w-full" style="height: 360px"></div>
       </div>
     </div>
   `,
 })
 export class DashboardComponent implements OnInit {
-  private svc = inject(ActivitiesService);
+  private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
-  private typeSvc = inject(ActivityTypesService);
+  private typeSvc = inject(TiposVisitaService);
 
-  items = signal<Actividad[]>([]);
+  items = signal<Visita[]>([]);
   tecnicos = signal<Tecnico[]>([]);
-  tipos = signal<TipoActividad[]>([]);
+  tipos = signal<TipoVisita[]>([]);
 
   fDesde = signal('');
   fHasta = signal('');
@@ -168,14 +168,14 @@ export class DashboardComponent implements OnInit {
     hasta: this.fHasta() ? new Date(this.fHasta() + 'T23:59:59').getTime() : null,
   }));
 
-  private pasa(a: Actividad): boolean {
+  private pasa(a: Visita): boolean {
     if (this.fTecnico() && a.tecnico_id !== this.fTecnico()) return false;
     if (this.fCliente() && a.nombre_cliente !== this.fCliente()) return false;
-    if (this.fTipo() && a.tipo_actividad_id !== this.fTipo()) return false;
+    if (this.fTipo() && a.tipo_visita_id !== this.fTipo()) return false;
     return true;
   }
 
-  filtered = computed<Actividad[]>(() => {
+  filtered = computed<Visita[]>(() => {
     const { desde, hasta } = this.rangoTimestamps();
     return this.items().filter((a) => {
       if (!this.pasa(a)) return false;
@@ -189,7 +189,7 @@ export class DashboardComponent implements OnInit {
     });
   });
 
-  filteredAnterior = computed<Actividad[]>(() => {
+  filteredAnterior = computed<Visita[]>(() => {
     const { desde, hasta } = this.rangoTimestamps();
     if (desde == null || hasta == null) return [];
     const durMs = hasta - desde;
@@ -232,7 +232,7 @@ export class DashboardComponent implements OnInit {
     if (total === 0) return [];
     const map = new Map<string, number>();
     list.forEach((a) => {
-      const k = a.tipo_actividad?.nombre ?? 'Sin tipo';
+      const k = a.tipo_visita?.nombre ?? 'Sin tipo';
       map.set(k, (map.get(k) ?? 0) + 1);
     });
     return Array.from(map.entries())
