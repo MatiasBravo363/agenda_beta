@@ -8,12 +8,13 @@ import { Actividad, Tecnico, Visita } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeVisita } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { MultiSelectComponent, MultiSelectOption } from '../../shared/components/multi-select.component';
+import { VisitaClonarModalComponent } from '../../shared/components/visita-clonar-modal.component';
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
 @Component({
   selector: 'app-visita-form',
   standalone: true,
-  imports: [FormsModule, RouterLink, DireccionAutocompleteComponent, MultiSelectComponent, SiTieneDirective],
+  imports: [FormsModule, RouterLink, DireccionAutocompleteComponent, MultiSelectComponent, VisitaClonarModalComponent, SiTieneDirective],
   template: `
     <div class="max-w-3xl mx-auto space-y-6">
       @if (!embed) {
@@ -146,6 +147,14 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
         </div>
       }
     </div>
+
+    @if (clonando(); as v) {
+      <app-visita-clonar-modal
+        [visita]="v"
+        (cancelar)="clonando.set(null)"
+        (confirmado)="onClonarConfirmado($event)">
+      </app-visita-clonar-modal>
+    }
   `,
 })
 export class VisitaFormComponent implements OnInit {
@@ -170,6 +179,7 @@ export class VisitaFormComponent implements OnInit {
   error = signal<string | null>(null);
   modoDuracion = signal(false);
   duracionMin = signal(60);
+  clonando = signal<Visita | null>(null);
   isNew = true;
 
   tecnicosOptions = computed<MultiSelectOption[]>(() =>
@@ -336,8 +346,23 @@ export class VisitaFormComponent implements OnInit {
 
   async clone() {
     const m = this.model(); if (!m?.id) return;
-    const created = await this.svc.clone(m.id);
-    if (this.embed) this.guardado.emit();
-    else this.router.navigate(['/visitas', created.id]);
+    // Recupera la visita completa (con técnicos/actividades) para pasarle al modal.
+    const original = await this.svc.getById(m.id);
+    if (!original) return;
+    this.clonando.set(original);
+  }
+
+  async onClonarConfirmado(ev: { fecha_inicio: string; fecha_fin: string }) {
+    const v = this.clonando();
+    if (!v) return;
+    try {
+      const created = await this.svc.clone(v.id, ev.fecha_inicio, ev.fecha_fin);
+      this.clonando.set(null);
+      if (this.embed) this.guardado.emit();
+      else this.router.navigate(['/visitas', created.id]);
+    } catch (e: any) {
+      this.error.set(e?.message ?? 'No se pudo clonar la visita');
+      this.clonando.set(null);
+    }
   }
 }
