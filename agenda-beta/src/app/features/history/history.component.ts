@@ -59,7 +59,7 @@ interface Row {
             </select>
           </div>
           <div>
-            <label class="label">Tipo visita</label>
+            <label class="label">Actividad</label>
             <select class="input" [ngModel]="fTipo()" (ngModelChange)="fTipo.set($event)">
               <option [ngValue]="''">Todos</option>
               @for (v of opts().tipos; track v) { <option [ngValue]="v">{{ v }}</option> }
@@ -80,7 +80,7 @@ interface Row {
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('visita')">Visita {{ arrow('visita') }}</th>
               <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tecnico')">Técnico {{ arrow('tecnico') }}</th>
-              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo visita {{ arrow('tipo') }}</th>
+              <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Actividad {{ arrow('tipo') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -159,7 +159,7 @@ export class HistoryComponent implements OnInit {
   private toRow(h: VisitaHistorial): Row {
     const v = h.visita;
     const tec = v?.tecnico ? `${v.tecnico.nombre} ${v.tecnico.apellidos}` : '—';
-    const tipo = v?.tipo_visita?.nombre ?? '—';
+    const tipo = v?.actividad?.nombre ?? '—';
     return {
       id: h.id,
       idShort: h.id.slice(0, 8),

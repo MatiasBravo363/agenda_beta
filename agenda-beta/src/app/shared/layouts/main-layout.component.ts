@@ -67,11 +67,11 @@ import pkg from '../../../../package.json';
             <span class="text-lg">🔧</span>
             @if (!collapsed()) { <span>Técnicos</span> }
           </a>
-          <a *appSiTiene="'tipos_visita.ver'" routerLink="/tipos-visita" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'actividades.ver'" routerLink="/actividades" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
-             [title]="collapsed() ? 'Tipos de visita' : ''">
+             [title]="collapsed() ? 'Actividades' : ''">
             <span class="text-lg">🏷️</span>
-            @if (!collapsed()) { <span>Tipos de visita</span> }
+            @if (!collapsed()) { <span>Actividades</span> }
           </a>
           <a *appSiTiene="'usuarios.ver'" routerLink="/usuarios" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"

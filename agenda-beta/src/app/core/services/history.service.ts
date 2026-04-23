@@ -10,7 +10,7 @@ export class HistoryService {
   async list(): Promise<VisitaHistorial[]> {
     const { data, error } = await this.sb.client
       .from(this.table)
-      .select('*, visita:visitas(*, tecnico:tecnicos(*), tipo_visita:tipos_visita(*)), usuario:usuarios(*)')
+      .select('*, visita:visitas(*, tecnico:tecnicos(*), actividad:actividades(*)), usuario:usuarios(*)')
       .order('created_at', { ascending: false })
       .limit(500);
     if (error) throw error;

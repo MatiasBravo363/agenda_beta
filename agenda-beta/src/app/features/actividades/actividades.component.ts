@@ -1,16 +1,16 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TiposVisitaService } from '../../core/services/tipos-visita.service';
-import { TipoVisita } from '../../core/models';
+import { ActividadesService } from '../../core/services/actividades.service';
+import { Actividad } from '../../core/models';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 @Component({
-  selector: 'app-tipos-visita',
+  selector: 'app-actividades',
   standalone: true,
   imports: [FormsModule, PageHeaderComponent],
   template: `
-    <app-page-header title="Tipos de visita" subtitle="Catálogo de tipos utilizados al programar una visita.">
-      <button class="btn-primary" (click)="openNew()">+ Nuevo tipo</button>
+    <app-page-header title="Actividades" subtitle="Catálogo de actividades que se ejecutan durante una visita.">
+      <button class="btn-primary" (click)="openNew()">+ Nueva actividad</button>
     </app-page-header>
 
     <div class="p-8 space-y-4">
@@ -57,16 +57,16 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
     </div>
   `,
 })
-export class TiposVisitaComponent implements OnInit {
-  private svc = inject(TiposVisitaService);
-  items = signal<TipoVisita[]>([]);
-  editing = signal<Partial<TipoVisita> | null>(null);
+export class ActividadesComponent implements OnInit {
+  private svc = inject(ActividadesService);
+  items = signal<Actividad[]>([]);
+  editing = signal<Partial<Actividad> | null>(null);
 
   async ngOnInit() { await this.reload(); }
   async reload() { this.items.set(await this.svc.list()); }
 
   openNew() { this.editing.set({ nombre: '', descripcion: '' }); }
-  edit(t: TipoVisita) { this.editing.set({ ...t }); }
+  edit(t: Actividad) { this.editing.set({ ...t }); }
 
   async save() {
     const v = this.editing();
@@ -77,8 +77,8 @@ export class TiposVisitaComponent implements OnInit {
     await this.reload();
   }
 
-  async remove(t: TipoVisita) {
-    if (!confirm(`¿Eliminar tipo "${t.nombre}"?`)) return;
+  async remove(t: Actividad) {
+    if (!confirm(`¿Eliminar actividad "${t.nombre}"?`)) return;
     await this.svc.remove(t.id);
     await this.reload();
   }
