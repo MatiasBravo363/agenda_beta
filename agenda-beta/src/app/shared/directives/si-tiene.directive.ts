@@ -3,7 +3,7 @@ import { PermisosService } from '../../core/services/permisos.service';
 import { PermisoCodigo } from '../../core/models';
 
 /**
- * *appSiTiene="'actividades.borrar'"
+ * *appSiTiene="'visitas.borrar'"
  * Renderiza el template solo si el usuario tiene el permiso indicado.
  * Reactivo a cambios del signal de permisos.
  */

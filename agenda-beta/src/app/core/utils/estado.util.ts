@@ -1,6 +1,6 @@
-import { Actividad, EstadoActividad, Tecnico } from '../models';
+import { EstadoVisita, Tecnico, Visita } from '../models';
 
-export const ESTADO_LABEL: Record<EstadoActividad, string> = {
+export const ESTADO_LABEL: Record<EstadoVisita, string> = {
   en_cola: 'En cola',
   coordinado_con_cliente: 'Coordinado con cliente',
   agendado_con_tecnico: 'Agendado con técnico',
@@ -9,23 +9,18 @@ export const ESTADO_LABEL: Record<EstadoActividad, string> = {
 };
 
 /**
- * Color derivado de la regla de negocio Bermann:
- * - en_cola → azul
- * - coordinado_con_cliente → rojo
- * - agendado_con_tecnico + técnico NO Bermann → naranjo (técnico externo/regional)
- * - agendado_con_tecnico + externo en Santiago → verde (opcional)
- * - visita_fallida → gris
- * - completada → verde oscuro
+ * Color derivado de la regla de negocio Bermann (simplificado: el hue depende
+ * sólo del estado; el técnico se recibe por compatibilidad de firma).
  */
-export function colorDeActividad(a: Pick<Actividad, 'estado'>, _t?: Tecnico | null): string {
-  return colorDeEstado(a.estado);
+export function colorDeVisita(v: Pick<Visita, 'estado'>, _t?: Tecnico | null): string {
+  return colorDeEstado(v.estado);
 }
 
 /**
  * Color base por estado, sin depender del técnico. Útil para dashboards,
- * leyendas y spotlight cards donde no hay una actividad concreta.
+ * leyendas y spotlight cards donde no hay una visita concreta.
  */
-export function colorDeEstado(estado: EstadoActividad): string {
+export function colorDeEstado(estado: EstadoVisita): string {
   // Paleta mid-tone (texto blanco legible). Suavizada respecto a los tonos
   // intensos anteriores, manteniendo el hue de cada estado.
   switch (estado) {
@@ -37,7 +32,7 @@ export function colorDeEstado(estado: EstadoActividad): string {
   }
 }
 
-export const ESTADOS: EstadoActividad[] = [
+export const ESTADOS: EstadoVisita[] = [
   'en_cola',
   'coordinado_con_cliente',
   'agendado_con_tecnico',

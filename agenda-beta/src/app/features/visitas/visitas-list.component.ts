@@ -2,18 +2,18 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ActivitiesService } from '../../core/services/activities.service';
-import { Actividad, EstadoActividad, Tecnico } from '../../core/models';
-import { colorDeActividad, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
+import { VisitasService } from '../../core/services/visitas.service';
+import { EstadoVisita, Tecnico, Visita } from '../../core/models';
+import { colorDeVisita, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
-import { ActivityFormComponent } from './activity-form.component';
+import { VisitaFormComponent } from './visita-form.component';
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
 interface GrupoDia {
   key: string;       // 'YYYY-MM-DD' o '__sin__'
   label: string;     // 'Lunes 21 de abril de 2026' o 'Sin fecha'
-  items: Actividad[];
+  items: Visita[];
 }
 
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -38,7 +38,7 @@ type SortDir = 'asc' | 'desc';
 interface FiltrosAplicados {
   cliente: string;
   busqueda: string;
-  estado: EstadoActividad | '';
+  estado: EstadoVisita | '';
   tecnico: string;
   desde: string;
   hasta: string;
@@ -47,9 +47,9 @@ interface FiltrosAplicados {
 const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: '', tecnico: '', desde: '', hasta: '' };
 
 @Component({
-  selector: 'app-activities-list',
+  selector: 'app-visitas-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, ActivityFormComponent, SiTieneDirective],
+  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, VisitaFormComponent, SiTieneDirective],
   template: `
     <div class="space-y-4">
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -105,7 +105,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
           <button class="btn-primary" (click)="aplicarFiltros()">Buscar</button>
           <button class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
           <span class="text-sm text-slate-500 ml-auto">{{ filtradas().length }} resultado(s)</span>
-          <button *appSiTiene="'actividades.exportar'" class="btn-secondary" (click)="exportXlsx()">Exportar a Excel</button>
+          <button *appSiTiene="'visitas.exportar'" class="btn-secondary" (click)="exportXlsx()">Exportar a Excel</button>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                   [class.ring-brand-400]="c.hoy && c.key !== diaSeleccionado()"
                   (click)="seleccionarDia(c.key)">
                   {{ c.dia }}
-                  @if (c.tieneActividad) {
+                  @if (c.tieneVisita) {
                     <span class="absolute bottom-1 w-1 h-1 rounded-full"
                           [class.bg-white]="c.key === diaSeleccionado()"
                           [class.bg-brand-500]="c.key !== diaSeleccionado()"></span>
@@ -168,7 +168,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('estado')">Estado {{ arrow('estado') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
                 <th class="text-left px-4 py-3">Técnicos</th>
-                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo actividad {{ arrow('tipo') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo visita {{ arrow('tipo') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('ubicacion')">Ubicación {{ arrow('ubicacion') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creado')">Fecha creación {{ arrow('creado') }}</th>
                 <th class="w-40"></th>
@@ -176,7 +176,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
             </thead>
             <tbody>
               @if (filtradas().length === 0) {
-                <tr><td colspan="10" class="px-4 py-10 text-center text-slate-400">Sin actividades</td></tr>
+                <tr><td colspan="10" class="px-4 py-10 text-center text-slate-400">Sin visitas</td></tr>
               }
               @for (g of gruposPorDia(); track g.key) {
                 <tr class="bg-slate-100 dark:bg-slate-800 border-t-4 border-brand-500">
@@ -194,7 +194,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                       <button type="button" class="chip chip-estado text-white hover:brightness-110 transition cursor-pointer"
                               [style.background]="color(a)"
                               (click)="abrirEdicion(a); $event.stopPropagation()"
-                              title="Editar actividad">
+                              title="Editar visita">
                         {{ ESTADO_LABEL[a.estado] }}
                       </button>
                     </td>
@@ -211,22 +211,22 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                       }
                     </td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">
-                      @if (a.tipos_actividad?.length) {
+                      @if (a.tipos_visita?.length) {
                         <div class="flex flex-wrap gap-1">
-                          @for (t of a.tipos_actividad; track t.id) {
+                          @for (t of a.tipos_visita; track t.id) {
                             <span class="chip bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">{{ t.nombre }}</span>
                           }
                         </div>
                       } @else {
-                        {{ a.tipo_actividad?.nombre || '—' }}
+                        {{ a.tipo_visita?.nombre || '—' }}
                       }
                     </td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.ubicacion || '—' }}</td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.created_at ? (a.created_at | date:'dd-MM-yyyy HH:mm') : '—' }}</td>
                     <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
-                      <a class="text-brand-600 hover:underline" [routerLink]="['/actividades', a.id]">Abrir</a>
+                      <a class="text-brand-600 hover:underline" [routerLink]="['/visitas', a.id]">Abrir</a>
                       <button class="text-slate-500 hover:underline" (click)="clone(a)">Clonar</button>
-                      <button *appSiTiene="'actividades.borrar'" class="text-red-600 hover:underline" (click)="remove(a)">Borrar</button>
+                      <button *appSiTiene="'visitas.borrar'" class="text-red-600 hover:underline" (click)="remove(a)">Borrar</button>
                     </td>
                   </tr>
                 }
@@ -241,21 +241,21 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
     @if (editandoId()) {
       <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-start justify-center p-4 overflow-auto" (click)="cerrarEdicion()">
         <div class="w-full max-w-3xl mt-8" (click)="$event.stopPropagation()">
-          <app-activity-form
+          <app-visita-form
             [idEmbed]="editandoId()!"
             (guardado)="onGuardado()"
             (cancelado)="cerrarEdicion()">
-          </app-activity-form>
+          </app-visita-form>
         </div>
       </div>
     }
   `,
 })
-export class ActivitiesListComponent implements OnInit {
-  private svc = inject(ActivitiesService);
+export class VisitasListComponent implements OnInit {
+  private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
 
-  items = signal<Actividad[]>([]);
+  items = signal<Visita[]>([]);
   tecnicos = signal<Tecnico[]>([]);
 
   pendiente: FiltrosAplicados = { ...FILTROS_VACIOS };
@@ -283,8 +283,8 @@ export class ActivitiesListComponent implements OnInit {
     return Array.from(set).sort();
   });
 
-  kpiPorEstado = computed<Record<EstadoActividad, number>>(() => {
-    const base: Record<EstadoActividad, number> = {
+  kpiPorEstado = computed<Record<EstadoVisita, number>>(() => {
+    const base: Record<EstadoVisita, number> = {
       en_cola: 0, coordinado_con_cliente: 0, agendado_con_tecnico: 0,
       visita_fallida: 0, completada: 0,
     };
@@ -337,7 +337,7 @@ export class ActivitiesListComponent implements OnInit {
   });
 
   gruposPorDia = computed<GrupoDia[]>(() => {
-    const map = new Map<string, Actividad[]>();
+    const map = new Map<string, Visita[]>();
     for (const a of this.filtradas()) {
       const k = diaKey(a.fecha_inicio) ?? '__sin__';
       const arr = map.get(k) ?? [];
@@ -356,7 +356,7 @@ export class ActivitiesListComponent implements OnInit {
     }));
   });
 
-  diasConActividades = computed<Set<string>>(() => {
+  diasConVisitas = computed<Set<string>>(() => {
     const s = new Set<string>();
     for (const a of this.items()) {
       const k = diaKey(a.fecha_inicio);
@@ -376,18 +376,18 @@ export class ActivitiesListComponent implements OnInit {
     const startOffset = first.getDay(); // 0=dom
     const diasEnMes = new Date(year, month + 1, 0).getDate();
     const hoyKey = diaKey(new Date().toISOString());
-    const conAct = this.diasConActividades();
+    const conVisita = this.diasConVisitas();
 
-    const cells: Array<{ key: string | null; dia: number; mesActual: boolean; hoy: boolean; tieneActividad: boolean }> = [];
+    const cells: Array<{ key: string | null; dia: number; mesActual: boolean; hoy: boolean; tieneVisita: boolean }> = [];
 
-    for (let i = 0; i < startOffset; i++) cells.push({ key: null, dia: 0, mesActual: false, hoy: false, tieneActividad: false });
+    for (let i = 0; i < startOffset; i++) cells.push({ key: null, dia: 0, mesActual: false, hoy: false, tieneVisita: false });
 
     const pad = (n: number) => `${n}`.padStart(2, '0');
     for (let d = 1; d <= diasEnMes; d++) {
       const k = `${year}-${pad(month + 1)}-${pad(d)}`;
-      cells.push({ key: k, dia: d, mesActual: true, hoy: k === hoyKey, tieneActividad: conAct.has(k) });
+      cells.push({ key: k, dia: d, mesActual: true, hoy: k === hoyKey, tieneVisita: conVisita.has(k) });
     }
-    while (cells.length % 7 !== 0) cells.push({ key: null, dia: 0, mesActual: false, hoy: false, tieneActividad: false });
+    while (cells.length % 7 !== 0) cells.push({ key: null, dia: 0, mesActual: false, hoy: false, tieneVisita: false });
     return cells;
   });
 
@@ -406,14 +406,14 @@ export class ActivitiesListComponent implements OnInit {
   seleccionarDia(k: string | null) {
     this.diaSeleccionado.set(this.diaSeleccionado() === k ? null : k);
   }
-  abrirEdicion(a: Actividad) { this.editandoId.set(a.id); }
+  abrirEdicion(a: Visita) { this.editandoId.set(a.id); }
   cerrarEdicion() { this.editandoId.set(null); }
   async onGuardado() {
     this.editandoId.set(null);
     await this.reload();
   }
 
-  private sortValue(a: Actividad, key: SortKey): string | number {
+  private sortValue(a: Visita, key: SortKey): string | number {
     switch (key) {
       case 'numero': return a.numero ?? 0;
       case 'creador': return a.creado_por ? `${a.creado_por.nombre} ${a.creado_por.apellido}` : '';
@@ -421,7 +421,7 @@ export class ActivitiesListComponent implements OnInit {
       case 'horario': return a.fecha_inicio ? new Date(a.fecha_inicio).getTime() : Number.MAX_SAFE_INTEGER;
       case 'estado': return ESTADO_LABEL[a.estado] ?? a.estado;
       case 'cliente': return a.nombre_cliente ?? '';
-      case 'tipo': return a.tipo_actividad?.nombre ?? '';
+      case 'tipo': return a.tipo_visita?.nombre ?? '';
       case 'ubicacion': return a.ubicacion ?? '';
     }
   }
@@ -471,16 +471,16 @@ export class ActivitiesListComponent implements OnInit {
   async reload() { this.items.set(await this.svc.list()); }
   async loadTecnicos() { this.tecnicos.set(await this.techSvc.list()); }
 
-  color(a: Actividad) { return colorDeActividad(a, a.tecnico); }
+  color(a: Visita) { return colorDeVisita(a, a.tecnico); }
 
-  async clone(a: Actividad) {
-    if (!confirm(`¿Clonar actividad de "${a.nombre_cliente}"?`)) return;
+  async clone(a: Visita) {
+    if (!confirm(`¿Clonar visita de "${a.nombre_cliente}"?`)) return;
     await this.svc.clone(a.id);
     await this.reload();
   }
 
-  async remove(a: Actividad) {
-    if (!confirm(`¿Eliminar actividad de "${a.nombre_cliente}"? Esta acción no se puede deshacer.`)) return;
+  async remove(a: Visita) {
+    if (!confirm(`¿Eliminar visita de "${a.nombre_cliente}"? Esta acción no se puede deshacer.`)) return;
     await this.svc.remove(a.id);
     await this.reload();
   }
@@ -494,14 +494,14 @@ export class ActivitiesListComponent implements OnInit {
       'Fecha creación': a.created_at ? this.fmt(a.created_at) : '',
       Estado: ESTADO_LABEL[a.estado] ?? a.estado,
       Cliente: a.nombre_cliente,
-      'Tipo actividad': a.tipo_actividad?.nombre ?? '',
+      'Tipo visita': a.tipo_visita?.nombre ?? '',
       Ubicación: a.ubicacion ?? '',
       Técnico: a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : 'Sin asignar',
       Inicio: a.fecha_inicio ? this.fmt(a.fecha_inicio) : '',
       Fin: a.fecha_fin ? this.fmt(a.fecha_fin) : '',
     }));
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Actividades');
+    const ws = wb.addWorksheet('Visitas');
     if (rows.length) {
       ws.columns = Object.keys(rows[0]).map((key) => ({ header: key, key, width: 18 }));
       rows.forEach((r) => ws.addRow(r));
@@ -509,7 +509,7 @@ export class ActivitiesListComponent implements OnInit {
     }
     const buf = await wb.xlsx.writeBuffer();
     const stamp = new Date().toISOString().slice(0, 10);
-    saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `actividades-${stamp}.xlsx`);
+    saveAs(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `visitas-${stamp}.xlsx`);
   }
 
   private fmt(iso: string): string {

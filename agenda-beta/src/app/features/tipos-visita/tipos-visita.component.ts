@@ -1,15 +1,15 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivityTypesService } from '../../core/services/activity-types.service';
-import { TipoActividad } from '../../core/models';
+import { TiposVisitaService } from '../../core/services/tipos-visita.service';
+import { TipoVisita } from '../../core/models';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
 @Component({
-  selector: 'app-activity-types',
+  selector: 'app-tipos-visita',
   standalone: true,
   imports: [FormsModule, PageHeaderComponent],
   template: `
-    <app-page-header title="Tipos de actividad" subtitle="Catálogo de tipos utilizados al programar una actividad.">
+    <app-page-header title="Tipos de visita" subtitle="Catálogo de tipos utilizados al programar una visita.">
       <button class="btn-primary" (click)="openNew()">+ Nuevo tipo</button>
     </app-page-header>
 
@@ -57,16 +57,16 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
     </div>
   `,
 })
-export class ActivityTypesComponent implements OnInit {
-  private svc = inject(ActivityTypesService);
-  items = signal<TipoActividad[]>([]);
-  editing = signal<Partial<TipoActividad> | null>(null);
+export class TiposVisitaComponent implements OnInit {
+  private svc = inject(TiposVisitaService);
+  items = signal<TipoVisita[]>([]);
+  editing = signal<Partial<TipoVisita> | null>(null);
 
   async ngOnInit() { await this.reload(); }
   async reload() { this.items.set(await this.svc.list()); }
 
   openNew() { this.editing.set({ nombre: '', descripcion: '' }); }
-  edit(t: TipoActividad) { this.editing.set({ ...t }); }
+  edit(t: TipoVisita) { this.editing.set({ ...t }); }
 
   async save() {
     const v = this.editing();
@@ -77,7 +77,7 @@ export class ActivityTypesComponent implements OnInit {
     await this.reload();
   }
 
-  async remove(t: TipoActividad) {
+  async remove(t: TipoVisita) {
     if (!confirm(`¿Eliminar tipo "${t.nombre}"?`)) return;
     await this.svc.remove(t.id);
     await this.reload();

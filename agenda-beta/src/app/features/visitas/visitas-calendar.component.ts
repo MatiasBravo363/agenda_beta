@@ -9,27 +9,27 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
 
-import { ActivitiesService } from '../../core/services/activities.service';
+import { VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
-import { ActivityTypesService } from '../../core/services/activity-types.service';
-import { Actividad, EstadoActividad, Tecnico, TipoActividad } from '../../core/models';
-import { colorDeActividad, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
+import { TiposVisitaService } from '../../core/services/tipos-visita.service';
+import { EstadoVisita, Tecnico, TipoVisita, Visita } from '../../core/models';
+import { colorDeVisita, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
-import { ActivityFormComponent } from './activity-form.component';
+import { VisitaFormComponent } from './visita-form.component';
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
 interface DropPending {
-  actividad: Actividad;
+  visita: Visita;
   start: Date;
 }
 
-const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'visita_fallida', 'completada'];
+const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visita_fallida', 'completada'];
 
 @Component({
-  selector: 'app-activities-calendar',
+  selector: 'app-visitas-calendar',
   standalone: true,
-  imports: [FullCalendarModule, FormsModule, DireccionAutocompleteComponent, SpotlightCardComponent, ActivityFormComponent, SiTieneDirective],
+  imports: [FullCalendarModule, FormsModule, DireccionAutocompleteComponent, SpotlightCardComponent, VisitaFormComponent, SiTieneDirective],
   styles: [`
     @keyframes heartbeat-pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
@@ -134,7 +134,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
           <div #colaList class="space-y-2 max-h-[70vh] overflow-auto">
             @for (a of enCola(); track a.id) {
               <div class="encola-card group relative rounded-md border border-slate-200 bg-white p-3 cursor-grab hover:shadow-md hover:border-brand-300 transition"
-                   [attr.data-actividad-id]="a.id">
+                   [attr.data-visita-id]="a.id">
                 <div class="flex items-center justify-between gap-2">
                   <div class="font-medium text-sm truncate flex items-center gap-2">
                     {{ a.nombre_cliente }}
@@ -149,7 +149,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
                 <div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300">
                   <div class="overflow-hidden">
                     <div class="pt-2 mt-2 border-t border-slate-100 text-xs text-slate-600 space-y-1 relative">
-                      <div>Tipo: <span class="font-medium">{{ a.tipo_actividad?.nombre ?? '—' }}</span></div>
+                      <div>Tipo: <span class="font-medium">{{ a.tipo_visita?.nombre ?? '—' }}</span></div>
                       <div>
                         Estado:
                         <span class="chip text-white" [style.background]="colorDe(a)">{{ ESTADO_LABEL[a.estado] }}</span>
@@ -160,7 +160,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
                                 (mousedown)="$event.stopPropagation()"
                                 (click)="openMultiplicar(a, $event)"
                                 title="Multiplicar">×</button>
-                        <button *appSiTiene="'actividades.borrar'" type="button"
+                        <button *appSiTiene="'visitas.borrar'" type="button"
                                 class="w-6 h-6 rounded-md border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 text-xs font-bold"
                                 (mousedown)="$event.stopPropagation()"
                                 (click)="removeFromCola(a, $event)"
@@ -171,7 +171,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
                 </div>
               </div>
             } @empty {
-              <div class="text-xs text-slate-400 text-center py-6">No hay actividades en cola.</div>
+              <div class="text-xs text-slate-400 text-center py-6">No hay visitas en cola.</div>
             }
           </div>
         </aside>
@@ -229,9 +229,9 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
     @if (dropPending()) {
       <div class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4" (click)="cancelDrop()">
         <div class="card p-6 w-full max-w-md space-y-4" (click)="$event.stopPropagation()">
-          <h3 class="font-semibold text-slate-800">Agendar actividad</h3>
+          <h3 class="font-semibold text-slate-800">Agendar visita</h3>
           <div class="text-sm text-slate-600">
-            <div><strong>{{ dropPending()!.actividad.nombre_cliente }}</strong></div>
+            <div><strong>{{ dropPending()!.visita.nombre_cliente }}</strong></div>
             <div>Inicio: {{ formatStart() }}</div>
           </div>
 
@@ -279,11 +279,11 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
     @if (editandoId()) {
       <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-start justify-center p-4 overflow-auto" (click)="cerrarEdicion()">
         <div class="w-full max-w-3xl mt-8" (click)="$event.stopPropagation()">
-          <app-activity-form
+          <app-visita-form
             [idEmbed]="editandoId()!"
             (guardado)="onGuardadoEdicion()"
             (cancelado)="cerrarEdicion()">
-          </app-activity-form>
+          </app-visita-form>
         </div>
       </div>
     }
@@ -292,7 +292,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
     @if (multPending()) {
       <div class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4" (click)="multPending.set(null)">
         <div class="card p-6 w-full max-w-sm space-y-4" (click)="$event.stopPropagation()">
-          <h3 class="font-semibold text-slate-800">Multiplicar actividad</h3>
+          <h3 class="font-semibold text-slate-800">Multiplicar visita</h3>
           <div class="text-sm text-slate-600">
             <strong>{{ multPending()!.nombre_cliente }}</strong>
           </div>
@@ -312,22 +312,22 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoActividad[] = ['agendado_con_tecnico', 'v
     }
   `,
 })
-export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDestroy {
-  private svc = inject(ActivitiesService);
+export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestroy {
+  private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
-  private typeSvc = inject(ActivityTypesService);
+  private typeSvc = inject(TiposVisitaService);
   private router = inject(Router);
 
   @ViewChild('colaList', { static: false }) colaList?: ElementRef<HTMLDivElement>;
   private draggable?: Draggable;
 
-  items = signal<Actividad[]>([]);
+  items = signal<Visita[]>([]);
   tecnicos = signal<Tecnico[]>([]);
-  tipos = signal<TipoActividad[]>([]);
+  tipos = signal<TipoVisita[]>([]);
 
   fCliente = signal<string>('');
   fTecnico = signal<string>('');
-  fEstado = signal<EstadoActividad | ''>('');
+  fEstado = signal<EstadoVisita | ''>('');
   fTipo = signal<string>('');
 
   msg = signal<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -343,12 +343,12 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   };
 
   dropPending = signal<DropPending | null>(null);
-  dropEstado: EstadoActividad = 'coordinado_con_cliente';
+  dropEstado: EstadoVisita = 'coordinado_con_cliente';
   dropTecnicoId: string | null = null;
   dropDuracion = 60;
   confirming = signal(false);
 
-  multPending = signal<Actividad | null>(null);
+  multPending = signal<Visita | null>(null);
   multN = 2;
 
   editandoId = signal<string | null>(null);
@@ -363,20 +363,20 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     return Array.from(set).sort();
   });
 
-  filtered = computed<Actividad[]>(() => {
+  filtered = computed<Visita[]>(() => {
     const cli = this.fCliente(); const t = this.fTecnico();
     const e = this.fEstado(); const tp = this.fTipo();
     return this.items().filter((a) => {
       if (cli && a.nombre_cliente !== cli) return false;
       if (t && a.tecnico_id !== t) return false;
       if (e && a.estado !== e) return false;
-      if (tp && a.tipo_actividad_id !== tp) return false;
+      if (tp && a.tipo_visita_id !== tp) return false;
       return true;
     });
   });
 
-  kpiPorEstado = computed<Record<EstadoActividad, number>>(() => {
-    const base: Record<EstadoActividad, number> = {
+  kpiPorEstado = computed<Record<EstadoVisita, number>>(() => {
+    const base: Record<EstadoVisita, number> = {
       en_cola: 0, coordinado_con_cliente: 0, agendado_con_tecnico: 0,
       visita_fallida: 0, completada: 0,
     };
@@ -465,7 +465,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     this.fCliente.set(''); this.fTecnico.set(''); this.fEstado.set(''); this.fTipo.set('');
   }
 
-  colorDe(a: Actividad) { return colorDeActividad(a, a.tecnico); }
+  colorDe(a: Visita) { return colorDeVisita(a, a.tecnico); }
 
   toggleCreate() {
     this.showCreate.set(!this.showCreate());
@@ -489,7 +489,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     try {
       await this.svc.create({
         nombre_cliente: this.nuevo.cliente.trim(),
-        tipo_actividad_id: this.nuevo.tipo_id,
+        tipo_visita_id: this.nuevo.tipo_id,
         tecnico_id: this.nuevo.tecnico_id,
         ubicacion: this.nuevo.ubicacion || null,
         ubicacion_lat: this.nuevo.ubicacion_lat,
@@ -501,7 +501,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
       this.resetNuevo();
       this.showCreate.set(false);
       await this.reloadAll();
-      this.flash('ok', 'Actividad creada en cola.');
+      this.flash('ok', 'Visita creada en cola.');
     } catch (e: any) {
       this.flash('err', e?.message ?? 'No se pudo crear.');
     } finally {
@@ -509,20 +509,20 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     }
   }
 
-  openMultiplicar(a: Actividad, ev: Event) {
+  openMultiplicar(a: Visita, ev: Event) {
     ev.stopPropagation();
     this.multPending.set(a);
     this.multN = Math.max(2, a.cantidad_pendiente ?? 1);
   }
 
-  async removeFromCola(a: Actividad, ev: Event) {
+  async removeFromCola(a: Visita, ev: Event) {
     ev.stopPropagation();
     ev.preventDefault();
-    if (!confirm(`¿Eliminar actividad de "${a.nombre_cliente}"? Esta acción no se puede deshacer.`)) return;
+    if (!confirm(`¿Eliminar visita de "${a.nombre_cliente}"? Esta acción no se puede deshacer.`)) return;
     try {
       await this.svc.remove(a.id);
       await this.reloadAll();
-      this.flash('ok', 'Actividad eliminada.');
+      this.flash('ok', 'Visita eliminada.');
     } catch (e: any) {
       this.flash('err', e?.message ?? 'No se pudo eliminar.');
     }
@@ -543,13 +543,13 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   }
 
   private onExternalDrop(date: Date, el: HTMLElement) {
-    const id = el.dataset['actividadId'];
+    const id = el.dataset['visitaId'];
     if (!id) return;
-    const actividad = this.items().find((a) => a.id === id);
-    if (!actividad) return;
-    this.dropPending.set({ actividad, start: date });
+    const visita = this.items().find((a) => a.id === id);
+    if (!visita) return;
+    this.dropPending.set({ visita, start: date });
     this.dropEstado = 'coordinado_con_cliente';
-    this.dropTecnicoId = actividad.tecnico_id ?? null;
+    this.dropTecnicoId = visita.tecnico_id ?? null;
     this.dropDuracion = 60;
   }
 
@@ -574,26 +574,26 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     try {
       const start = p.start;
       const end = new Date(start.getTime() + this.dropDuracion * 60000);
-      const counter = p.actividad.cantidad_pendiente ?? 1;
+      const counter = p.visita.cantidad_pendiente ?? 1;
 
       if (counter > 1) {
         await this.svc.create({
-          nombre_cliente: p.actividad.nombre_cliente,
-          tipo_actividad_id: p.actividad.tipo_actividad_id,
+          nombre_cliente: p.visita.nombre_cliente,
+          tipo_visita_id: p.visita.tipo_visita_id,
           tecnico_id: this.dropTecnicoId,
-          ubicacion: p.actividad.ubicacion,
-          ubicacion_lat: p.actividad.ubicacion_lat,
-          ubicacion_lng: p.actividad.ubicacion_lng,
-          descripcion: p.actividad.descripcion,
+          ubicacion: p.visita.ubicacion,
+          ubicacion_lat: p.visita.ubicacion_lat,
+          ubicacion_lng: p.visita.ubicacion_lng,
+          descripcion: p.visita.descripcion,
           fecha_inicio: start.toISOString(),
           fecha_fin: end.toISOString(),
           estado: this.dropEstado,
-          parent_activity_id: p.actividad.id,
+          parent_visita_id: p.visita.id,
           cantidad_pendiente: 1,
         });
-        await this.svc.setCantidadPendiente(p.actividad.id, counter - 1);
+        await this.svc.setCantidadPendiente(p.visita.id, counter - 1);
       } else {
-        await this.svc.update(p.actividad.id, {
+        await this.svc.update(p.visita.id, {
           fecha_inicio: start.toISOString(),
           fecha_fin: end.toISOString(),
           estado: this.dropEstado,
@@ -604,7 +604,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
 
       await this.reloadAll();
       this.dropPending.set(null);
-      this.flash('ok', 'Actividad agendada.');
+      this.flash('ok', 'Visita agendada.');
     } catch (e: any) {
       this.flash('err', e?.message ?? 'No se pudo agendar.');
     } finally {
@@ -615,7 +615,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
   private onRangeSelect(arg: DateSelectArg) {
     const start = arg.start.toISOString();
     const end = arg.end.toISOString();
-    this.router.navigate(['/actividades', 'nueva'], { queryParams: { start, end } });
+    this.router.navigate(['/visitas', 'nueva'], { queryParams: { start, end } });
   }
 
   private async onEventChange(arg: EventDropArg | EventResizeDoneArg) {
@@ -625,7 +625,7 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     try {
       await this.svc.update(id, { fecha_inicio: start, fecha_fin: end });
       this.items.set(this.items().map((a) => (a.id === id ? { ...a, fecha_inicio: start, fecha_fin: end } : a)));
-      this.flash('ok', 'Actividad reubicada.');
+      this.flash('ok', 'Visita reubicada.');
     } catch (e: any) {
       arg.revert();
       this.flash('err', e?.message ?? 'No se pudo actualizar.');
@@ -643,11 +643,11 @@ export class ActivitiesCalendarComponent implements OnInit, AfterViewInit, OnDes
     setTimeout(() => this.msg.set(null), 3500);
   }
 
-  private toEvents(list: Actividad[]): EventInput[] {
+  private toEvents(list: Visita[]): EventInput[] {
     return list
       .filter((a) => a.fecha_inicio)
       .map((a) => {
-        const color = colorDeActividad(a, a.tecnico);
+        const color = colorDeVisita(a, a.tecnico);
         const tecnico = a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : 'Sin asignar';
         return {
           id: a.id,

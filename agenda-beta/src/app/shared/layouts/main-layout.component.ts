@@ -42,11 +42,11 @@ import pkg from '../../../../package.json';
             <span class="text-lg">📊</span>
             @if (!collapsed()) { <span>Dashboard</span> }
           </a>
-          <a *appSiTiene="'actividades.ver'" routerLink="/actividades" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'visitas.ver'" routerLink="/visitas" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
-             [title]="collapsed() ? 'Actividades' : ''">
+             [title]="collapsed() ? 'Visitas' : ''">
             <span class="text-lg">📅</span>
-            @if (!collapsed()) { <span>Actividades</span> }
+            @if (!collapsed()) { <span>Visitas</span> }
           </a>
           <a *appSiTiene="'historial.ver'" routerLink="/historial" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
@@ -67,11 +67,11 @@ import pkg from '../../../../package.json';
             <span class="text-lg">🔧</span>
             @if (!collapsed()) { <span>Técnicos</span> }
           </a>
-          <a *appSiTiene="'tipos_actividad.ver'" routerLink="/tipos-actividad" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
+          <a *appSiTiene="'tipos_visita.ver'" routerLink="/tipos-visita" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
-             [title]="collapsed() ? 'Tipos de actividad' : ''">
+             [title]="collapsed() ? 'Tipos de visita' : ''">
             <span class="text-lg">🏷️</span>
-            @if (!collapsed()) { <span>Tipos de actividad</span> }
+            @if (!collapsed()) { <span>Tipos de visita</span> }
           </a>
           <a *appSiTiene="'usuarios.ver'" routerLink="/usuarios" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
              class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"

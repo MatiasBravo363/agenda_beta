@@ -1,4 +1,4 @@
-export type EstadoActividad =
+export type EstadoVisita =
   | 'en_cola'
   | 'coordinado_con_cliente'
   | 'agendado_con_tecnico'
@@ -8,19 +8,19 @@ export type EstadoActividad =
 export type TipoTecnico = 'interno' | 'externo';
 
 export type PermisoCodigo =
-  | 'actividades.ver'
-  | 'actividades.crear'
-  | 'actividades.editar'
-  | 'actividades.borrar'
-  | 'actividades.exportar'
+  | 'visitas.ver'
+  | 'visitas.crear'
+  | 'visitas.editar'
+  | 'visitas.borrar'
+  | 'visitas.exportar'
   | 'tecnicos.ver'
   | 'tecnicos.crear'
   | 'tecnicos.editar'
   | 'tecnicos.borrar'
-  | 'tipos_actividad.ver'
-  | 'tipos_actividad.crear'
-  | 'tipos_actividad.editar'
-  | 'tipos_actividad.borrar'
+  | 'tipos_visita.ver'
+  | 'tipos_visita.crear'
+  | 'tipos_visita.editar'
+  | 'tipos_visita.borrar'
   | 'usuarios.ver'
   | 'usuarios.invitar'
   | 'usuarios.editar'
@@ -71,18 +71,18 @@ export interface Tecnico {
   created_at?: string;
 }
 
-export interface TipoActividad {
+export interface TipoVisita {
   id: string;
   nombre: string;
   descripcion: string | null;
 }
 
-export interface Actividad {
+export interface Visita {
   id: string;
   numero?: number;
   cantidad_pendiente?: number;
   nombre_cliente: string;
-  tipo_actividad_id: string | null;
+  tipo_visita_id: string | null;
   tecnico_id: string | null;
   fecha_inicio: string | null;
   fecha_fin: string | null;
@@ -90,30 +90,30 @@ export interface Actividad {
   ubicacion_lat?: number | null;
   ubicacion_lng?: number | null;
   descripcion: string | null;
-  estado: EstadoActividad;
-  parent_activity_id: string | null;
+  estado: EstadoVisita;
+  parent_visita_id: string | null;
   created_by: string | null;
   created_at?: string;
   updated_at?: string;
   tecnico?: Tecnico | null;
-  tipo_actividad?: TipoActividad | null;
+  tipo_visita?: TipoVisita | null;
   creado_por?: Usuario | null;
-  // Multi-asignación (pivotes actividad_tecnicos / actividad_tipos_actividad).
-  // `tecnico_id` y `tipo_actividad_id` quedan como "principal" (primer elemento).
+  // Multi-asignación (pivotes visita_tecnicos / visita_tipos_visita).
+  // `tecnico_id` y `tipo_visita_id` quedan como "principal" (primer elemento).
   tecnicos?: Tecnico[];
-  tipos_actividad?: TipoActividad[];
+  tipos_visita?: TipoVisita[];
   tecnicos_ids?: string[];
-  tipos_actividad_ids?: string[];
+  tipos_visita_ids?: string[];
 }
 
-export interface ActividadHistorial {
+export interface VisitaHistorial {
   id: string;
-  actividad_id: string;
-  estado_anterior: EstadoActividad | null;
-  estado_nuevo: EstadoActividad;
+  visita_id: string;
+  estado_anterior: EstadoVisita | null;
+  estado_nuevo: EstadoVisita;
   comentario: string | null;
   usuario_id: string | null;
   created_at: string;
-  actividad?: Actividad | null;
+  visita?: Visita | null;
   usuario?: Usuario | null;
 }
