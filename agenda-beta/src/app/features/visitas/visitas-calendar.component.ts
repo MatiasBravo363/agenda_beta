@@ -85,9 +85,9 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
         }
       </div>
 
-      <div class="flex gap-4">
+      <div class="flex flex-col lg:flex-row gap-4">
         <!-- Panel en_cola -->
-        <aside class="w-72 shrink-0 card p-4 space-y-3 h-fit sticky top-4">
+        <aside class="w-full lg:w-72 lg:shrink-0 card p-4 space-y-3 h-fit lg:sticky lg:top-4">
           <div class="flex items-center justify-between">
             <h3 class="font-semibold text-slate-700">En cola</h3>
             <button class="text-xs text-brand-600 hover:underline" (click)="toggleCreate()">
@@ -131,7 +131,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
             </div>
           }
 
-          <div #colaList class="space-y-2 max-h-[70vh] overflow-auto">
+          <div #colaList class="space-y-2 max-h-[60vh] lg:max-h-[70vh] overflow-auto">
             @for (a of enCola(); track a.id) {
               <div class="encola-card group relative rounded-md border border-slate-200 bg-white p-3 cursor-grab hover:shadow-md hover:border-brand-300 transition"
                    [attr.data-visita-id]="a.id">
@@ -178,7 +178,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
 
         <!-- Calendario -->
         <div class="flex-1 min-w-0 card p-4 space-y-4">
-          <div class="flex flex-wrap gap-3 items-end">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
             <div>
               <label class="label">Cliente</label>
               <select class="input" [ngModel]="fCliente()" (ngModelChange)="fCliente.set($event)">
@@ -209,10 +209,14 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
                 @for (tp of tipos(); track tp.id) { <option [ngValue]="tp.id">{{ tp.nombre }}</option> }
               </select>
             </div>
+          </div>
+          <div class="flex">
             <button class="btn-secondary ml-auto" (click)="clearFilters()">Limpiar filtros</button>
           </div>
 
-          <full-calendar [options]="options()"></full-calendar>
+          <div class="overflow-x-auto">
+            <full-calendar [options]="options()"></full-calendar>
+          </div>
 
           @if (msg(); as m) {
             <div class="text-sm rounded-md px-3 py-2"
@@ -389,9 +393,11 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
 
   colorDeEstado = colorDeEstado;
 
-  options = computed<CalendarOptions>(() => ({
+  options = computed<CalendarOptions>(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    return ({
     plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
-    initialView: 'timeGridWeek',
+    initialView: isMobile ? 'listWeek' : 'timeGridWeek',
     locale: 'es',
     firstDay: 1,
     nowIndicator: true,
@@ -404,12 +410,12 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
     scrollTime: '07:00:00',
     selectable: true,
     selectMirror: true,
-    headerToolbar: {
-      left: 'prev,next today', center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
-    },
+    headerToolbar: isMobile
+      ? { left: 'prev,next', center: 'title', right: 'listWeek,timeGridDay' }
+      : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' },
     buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', day: 'Día', list: 'Lista' },
-    height: 680,
+    titleFormat: isMobile ? { month: 'short', day: 'numeric' } : { month: 'long', year: 'numeric' },
+    height: isMobile ? 520 : 680,
     events: this.toEvents(this.filtered()),
     eventClick: (arg) => this.editandoId.set(arg.event.id),
     eventDrop: (arg) => this.onEventChange(arg),
@@ -434,7 +440,8 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
         `,
       };
     },
-  }));
+    });
+  });
 
   private escapeHtml(s: string): string {
     return s.replace(/[&<>"']/g, (c) =>

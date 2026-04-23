@@ -16,7 +16,7 @@ import { PageHeaderComponent } from '../../shared/components/page-header.compone
       </div>
       <a class="btn-primary" routerLink="nueva">+ Nueva visita</a>
     </app-page-header>
-    <div class="p-8"><router-outlet/></div>
+    <div class="p-4 sm:p-8"><router-outlet/></div>
   `,
 })
 export class VisitasShellComponent {}

@@ -122,7 +122,15 @@ export class MainLayoutComponent {
   }
 
   private readPref(): boolean {
-    try { return localStorage.getItem('agenda_sidebar_collapsed') === '1'; } catch { return false; }
+    try {
+      const stored = localStorage.getItem('agenda_sidebar_collapsed');
+      if (stored === '1') return true;
+      if (stored === '0') return false;
+      // Sin preferencia guardada: arrancamos colapsado en viewports chicos.
+      return typeof window !== 'undefined' && window.innerWidth < 768;
+    } catch {
+      return false;
+    }
   }
 
   async logout() {

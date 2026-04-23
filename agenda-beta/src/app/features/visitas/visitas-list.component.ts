@@ -63,7 +63,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
       </div>
 
       <div class="card p-4 space-y-3">
-        <div class="flex flex-wrap items-end gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <div>
             <label class="label">Cliente</label>
             <select class="input" [(ngModel)]="pendiente.cliente">
@@ -101,7 +101,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
             <input class="input" type="date" [(ngModel)]="pendiente.hasta"/>
           </div>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
           <button class="btn-primary" (click)="aplicarFiltros()">Buscar</button>
           <button class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
           <span class="text-sm text-slate-500 ml-auto">{{ filtradas().length }} resultado(s)</span>
@@ -158,8 +158,8 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
         </aside>
 
         <!-- Tabla agrupada -->
-        <div class="card overflow-hidden">
-          <table class="w-full text-sm">
+        <div class="card overflow-x-auto">
+          <table class="w-full text-sm min-w-[980px]">
             <thead class="bg-slate-50 dark:bg-slate-800 text-slate-500 text-xs uppercase">
               <tr>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('numero')">ID {{ arrow('numero') }}</th>
