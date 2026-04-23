@@ -11,8 +11,8 @@ import interactionPlugin from '@fullcalendar/interaction';
 
 import { VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
-import { TiposVisitaService } from '../../core/services/tipos-visita.service';
-import { EstadoVisita, Tecnico, TipoVisita, Visita } from '../../core/models';
+import { ActividadesService } from '../../core/services/actividades.service';
+import { Actividad, EstadoVisita, Tecnico, Visita } from '../../core/models';
 import { colorDeVisita, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
@@ -149,7 +149,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
                 <div class="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300">
                   <div class="overflow-hidden">
                     <div class="pt-2 mt-2 border-t border-slate-100 text-xs text-slate-600 space-y-1 relative">
-                      <div>Tipo: <span class="font-medium">{{ a.tipo_visita?.nombre ?? '—' }}</span></div>
+                      <div>Actividad: <span class="font-medium">{{ a.actividad?.nombre ?? '—' }}</span></div>
                       <div>
                         Estado:
                         <span class="chip text-white" [style.background]="colorDe(a)">{{ ESTADO_LABEL[a.estado] }}</span>
@@ -315,7 +315,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
 export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestroy {
   private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
-  private typeSvc = inject(TiposVisitaService);
+  private typeSvc = inject(ActividadesService);
   private router = inject(Router);
 
   @ViewChild('colaList', { static: false }) colaList?: ElementRef<HTMLDivElement>;
@@ -323,7 +323,7 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
 
   items = signal<Visita[]>([]);
   tecnicos = signal<Tecnico[]>([]);
-  tipos = signal<TipoVisita[]>([]);
+  tipos = signal<Actividad[]>([]);
 
   fCliente = signal<string>('');
   fTecnico = signal<string>('');
@@ -370,7 +370,7 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
       if (cli && a.nombre_cliente !== cli) return false;
       if (t && a.tecnico_id !== t) return false;
       if (e && a.estado !== e) return false;
-      if (tp && a.tipo_visita_id !== tp) return false;
+      if (tp && a.actividad_id !== tp) return false;
       return true;
     });
   });
@@ -489,7 +489,7 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
     try {
       await this.svc.create({
         nombre_cliente: this.nuevo.cliente.trim(),
-        tipo_visita_id: this.nuevo.tipo_id,
+        actividad_id: this.nuevo.tipo_id,
         tecnico_id: this.nuevo.tecnico_id,
         ubicacion: this.nuevo.ubicacion || null,
         ubicacion_lat: this.nuevo.ubicacion_lat,
@@ -579,7 +579,7 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
       if (counter > 1) {
         await this.svc.create({
           nombre_cliente: p.visita.nombre_cliente,
-          tipo_visita_id: p.visita.tipo_visita_id,
+          actividad_id: p.visita.actividad_id,
           tecnico_id: this.dropTecnicoId,
           ubicacion: p.visita.ubicacion,
           ubicacion_lat: p.visita.ubicacion_lat,

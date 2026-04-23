@@ -5,8 +5,8 @@ import type { EChartsOption } from 'echarts';
 
 import { VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
-import { TiposVisitaService } from '../../core/services/tipos-visita.service';
-import { Visita, Tecnico, TipoVisita } from '../../core/models';
+import { ActividadesService } from '../../core/services/actividades.service';
+import { Actividad, Visita, Tecnico } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeEstado } from '../../core/utils/estado.util';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
 
@@ -85,7 +85,7 @@ const TIPO_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#a
         </div>
 
         <div>
-          <div class="text-xs text-slate-500 mb-2">Distribución por tipo (excluye En cola)</div>
+          <div class="text-xs text-slate-500 mb-2">Distribución por actividad (excluye En cola)</div>
           @if (distribTipos().length > 0) {
             <div class="flex h-4 rounded-md overflow-hidden border border-slate-200">
               @for (s of distribTipos(); track s.nombre) {
@@ -120,11 +120,11 @@ const TIPO_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#a
 export class DashboardComponent implements OnInit {
   private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
-  private typeSvc = inject(TiposVisitaService);
+  private typeSvc = inject(ActividadesService);
 
   items = signal<Visita[]>([]);
   tecnicos = signal<Tecnico[]>([]);
-  tipos = signal<TipoVisita[]>([]);
+  tipos = signal<Actividad[]>([]);
 
   fDesde = signal('');
   fHasta = signal('');
@@ -171,7 +171,7 @@ export class DashboardComponent implements OnInit {
   private pasa(a: Visita): boolean {
     if (this.fTecnico() && a.tecnico_id !== this.fTecnico()) return false;
     if (this.fCliente() && a.nombre_cliente !== this.fCliente()) return false;
-    if (this.fTipo() && a.tipo_visita_id !== this.fTipo()) return false;
+    if (this.fTipo() && a.actividad_id !== this.fTipo()) return false;
     return true;
   }
 
@@ -232,7 +232,7 @@ export class DashboardComponent implements OnInit {
     if (total === 0) return [];
     const map = new Map<string, number>();
     list.forEach((a) => {
-      const k = a.tipo_visita?.nombre ?? 'Sin tipo';
+      const k = a.actividad?.nombre ?? 'Sin actividad';
       map.set(k, (map.get(k) ?? 0) + 1);
     });
     return Array.from(map.entries())

@@ -3,8 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
-import { TiposVisitaService } from '../../core/services/tipos-visita.service';
-import { Tecnico, TipoVisita, Visita } from '../../core/models';
+import { ActividadesService } from '../../core/services/actividades.service';
+import { Actividad, Tecnico, Visita } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeVisita } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { MultiSelectComponent, MultiSelectOption } from '../../shared/components/multi-select.component';
@@ -42,12 +42,12 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
             </div>
 
             <div>
-              <label class="label">Tipos de visita *</label>
+              <label class="label">Actividades *</label>
               <app-multi-select
-                [options]="tiposOptions()"
-                [selected]="tiposIds()"
-                (selectedChange)="tiposIds.set($event)"
-                placeholder="— Seleccionar uno o más —">
+                [options]="actividadesOptions()"
+                [selected]="actividadesIds()"
+                (selectedChange)="actividadesIds.set($event)"
+                placeholder="— Seleccionar una o más —">
               </app-multi-select>
             </div>
 
@@ -151,7 +151,7 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 export class VisitaFormComponent implements OnInit {
   private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
-  private typeSvc = inject(TiposVisitaService);
+  private typeSvc = inject(ActividadesService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -163,9 +163,9 @@ export class VisitaFormComponent implements OnInit {
 
   model = signal<Partial<Visita> | null>(null);
   tecnicos = signal<Tecnico[]>([]);
-  tipos = signal<TipoVisita[]>([]);
+  actividades = signal<Actividad[]>([]);
   tecnicosIds = signal<string[]>([]);
-  tiposIds = signal<string[]>([]);
+  actividadesIds = signal<string[]>([]);
   saving = signal(false);
   error = signal<string | null>(null);
   modoDuracion = signal(false);
@@ -178,8 +178,8 @@ export class VisitaFormComponent implements OnInit {
       label: `${t.nombre} ${t.apellidos} · ${t.tecnico_bermann ? 'Bermann' : t.tipo} · ${t.region || '—'}`,
     })),
   );
-  tiposOptions = computed<MultiSelectOption[]>(() =>
-    this.tipos().map((t) => ({ id: t.id, label: t.nombre })),
+  actividadesOptions = computed<MultiSelectOption[]>(() =>
+    this.actividades().map((t) => ({ id: t.id, label: t.nombre })),
   );
 
   fechaError = computed<string | null>(() => {
@@ -203,7 +203,7 @@ export class VisitaFormComponent implements OnInit {
   async ngOnInit() {
     const [t, tp] = await Promise.all([this.techSvc.list(), this.typeSvc.list()]);
     this.tecnicos.set(t);
-    this.tipos.set(tp);
+    this.actividades.set(tp);
 
     const id = this.idEmbed ?? this.route.snapshot.paramMap.get('id');
     if (id && id !== 'nueva') {
@@ -218,8 +218,8 @@ export class VisitaFormComponent implements OnInit {
       if (a) {
         const tIds = (a.tecnicos ?? []).map((x) => x.id);
         this.tecnicosIds.set(tIds.length ? tIds : a.tecnico_id ? [a.tecnico_id] : []);
-        const tpIds = (a.tipos_visita ?? []).map((x) => x.id);
-        this.tiposIds.set(tpIds.length ? tpIds : a.tipo_visita_id ? [a.tipo_visita_id] : []);
+        const actIds = (a.actividades ?? []).map((x) => x.id);
+        this.actividadesIds.set(actIds.length ? actIds : a.actividad_id ? [a.actividad_id] : []);
       }
     } else {
       this.isNew = true;
@@ -229,7 +229,7 @@ export class VisitaFormComponent implements OnInit {
       this.model.set({
         nombre_cliente: '',
         estado: 'en_cola',
-        tipo_visita_id: null,
+        actividad_id: null,
         tecnico_id: null,
         fecha_inicio: start ?? null,
         fecha_fin: end ?? null,
@@ -237,7 +237,7 @@ export class VisitaFormComponent implements OnInit {
         descripcion: '',
       });
       this.tecnicosIds.set([]);
-      this.tiposIds.set([]);
+      this.actividadesIds.set([]);
     }
   }
 
@@ -286,7 +286,7 @@ export class VisitaFormComponent implements OnInit {
     const m = this.model();
     if (!m?.nombre_cliente) { this.error.set('El nombre del cliente es obligatorio'); return; }
     if (!m.estado) { this.error.set('El estado es obligatorio'); return; }
-    if (this.tiposIds().length === 0) { this.error.set('Seleccioná al menos un tipo de visita'); return; }
+    if (this.actividadesIds().length === 0) { this.error.set('Seleccioná al menos una actividad'); return; }
     const estadosConTecnico = ['agendado_con_tecnico', 'visita_fallida', 'completada'];
     if (this.tecnicosIds().length > 0 && !estadosConTecnico.includes(m.estado)) {
       this.error.set('Para asignar técnicos, el estado debe ser "Agendado con técnico", "Visita fallida" o "Completada".');
@@ -305,7 +305,7 @@ export class VisitaFormComponent implements OnInit {
     const payload: Partial<Visita> = {
       ...m,
       tecnicos_ids: this.tecnicosIds(),
-      tipos_visita_ids: this.tiposIds(),
+      actividades_ids: this.actividadesIds(),
     };
     this.saving.set(true); this.error.set(null);
     try {

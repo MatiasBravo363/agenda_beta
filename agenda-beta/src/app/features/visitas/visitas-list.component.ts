@@ -168,7 +168,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('estado')">Estado {{ arrow('estado') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('cliente')">Cliente {{ arrow('cliente') }}</th>
                 <th class="text-left px-4 py-3">Técnicos</th>
-                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Tipo visita {{ arrow('tipo') }}</th>
+                <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('tipo')">Actividad {{ arrow('tipo') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('ubicacion')">Ubicación {{ arrow('ubicacion') }}</th>
                 <th class="text-left px-4 py-3 cursor-pointer select-none" (click)="toggleSort('creado')">Fecha creación {{ arrow('creado') }}</th>
                 <th class="w-40"></th>
@@ -211,14 +211,14 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                       }
                     </td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">
-                      @if (a.tipos_visita?.length) {
+                      @if (a.actividades?.length) {
                         <div class="flex flex-wrap gap-1">
-                          @for (t of a.tipos_visita; track t.id) {
+                          @for (t of a.actividades; track t.id) {
                             <span class="chip bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">{{ t.nombre }}</span>
                           }
                         </div>
                       } @else {
-                        {{ a.tipo_visita?.nombre || '—' }}
+                        {{ a.actividad?.nombre || '—' }}
                       }
                     </td>
                     <td class="px-4 py-2.5 text-slate-600 dark:text-slate-400">{{ a.ubicacion || '—' }}</td>
@@ -421,7 +421,7 @@ export class VisitasListComponent implements OnInit {
       case 'horario': return a.fecha_inicio ? new Date(a.fecha_inicio).getTime() : Number.MAX_SAFE_INTEGER;
       case 'estado': return ESTADO_LABEL[a.estado] ?? a.estado;
       case 'cliente': return a.nombre_cliente ?? '';
-      case 'tipo': return a.tipo_visita?.nombre ?? '';
+      case 'tipo': return a.actividad?.nombre ?? '';
       case 'ubicacion': return a.ubicacion ?? '';
     }
   }
@@ -494,7 +494,7 @@ export class VisitasListComponent implements OnInit {
       'Fecha creación': a.created_at ? this.fmt(a.created_at) : '',
       Estado: ESTADO_LABEL[a.estado] ?? a.estado,
       Cliente: a.nombre_cliente,
-      'Tipo visita': a.tipo_visita?.nombre ?? '',
+      Actividad: a.actividad?.nombre ?? '',
       Ubicación: a.ubicacion ?? '',
       Técnico: a.tecnico ? `${a.tecnico.nombre} ${a.tecnico.apellidos}` : 'Sin asignar',
       Inicio: a.fecha_inicio ? this.fmt(a.fecha_inicio) : '',

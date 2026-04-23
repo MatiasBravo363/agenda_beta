@@ -17,10 +17,10 @@ export type PermisoCodigo =
   | 'tecnicos.crear'
   | 'tecnicos.editar'
   | 'tecnicos.borrar'
-  | 'tipos_visita.ver'
-  | 'tipos_visita.crear'
-  | 'tipos_visita.editar'
-  | 'tipos_visita.borrar'
+  | 'actividades.ver'
+  | 'actividades.crear'
+  | 'actividades.editar'
+  | 'actividades.borrar'
   | 'usuarios.ver'
   | 'usuarios.invitar'
   | 'usuarios.editar'
@@ -71,7 +71,7 @@ export interface Tecnico {
   created_at?: string;
 }
 
-export interface TipoVisita {
+export interface Actividad {
   id: string;
   nombre: string;
   descripcion: string | null;
@@ -82,7 +82,7 @@ export interface Visita {
   numero?: number;
   cantidad_pendiente?: number;
   nombre_cliente: string;
-  tipo_visita_id: string | null;
+  actividad_id: string | null;
   tecnico_id: string | null;
   fecha_inicio: string | null;
   fecha_fin: string | null;
@@ -96,14 +96,14 @@ export interface Visita {
   created_at?: string;
   updated_at?: string;
   tecnico?: Tecnico | null;
-  tipo_visita?: TipoVisita | null;
+  actividad?: Actividad | null;
   creado_por?: Usuario | null;
-  // Multi-asignación (pivotes visita_tecnicos / visita_tipos_visita).
-  // `tecnico_id` y `tipo_visita_id` quedan como "principal" (primer elemento).
+  // Multi-asignación (pivotes visita_tecnicos / visita_actividades).
+  // `tecnico_id` y `actividad_id` quedan como "principal" (primer elemento).
   tecnicos?: Tecnico[];
-  tipos_visita?: TipoVisita[];
+  actividades?: Actividad[];
   tecnicos_ids?: string[];
-  tipos_visita_ids?: string[];
+  actividades_ids?: string[];
 }
 
 export interface VisitaHistorial {

@@ -54,22 +54,26 @@ export const routes: Routes = [
         ],
       },
 
-      // Redirects legacy: bookmarks viejos de /actividades/* siguen funcionando.
-      { path: 'actividades', pathMatch: 'full', redirectTo: 'visitas' },
-      { path: 'actividades/:rest', redirectTo: 'visitas/:rest' },
+      {
+        path: 'actividades',
+        pathMatch: 'full',
+        loadComponent: () =>
+          import('./features/actividades/actividades.component').then((m) => m.ActividadesComponent),
+      },
+      // Redirects legacy: bookmarks viejos de /actividades/* (cuando era el módulo de visitas) siguen funcionando.
+      { path: 'actividades/lista',       redirectTo: 'visitas/lista' },
+      { path: 'actividades/calendario',  redirectTo: 'visitas/calendario' },
+      { path: 'actividades/nueva',       redirectTo: 'visitas/nueva' },
+      { path: 'actividades/:id',         redirectTo: 'visitas/:id' },
 
       {
         path: 'tecnicos',
         loadComponent: () =>
           import('./features/technicians/technicians.component').then((m) => m.TechniciansComponent),
       },
-      {
-        path: 'tipos-visita',
-        loadComponent: () =>
-          import('./features/tipos-visita/tipos-visita.component').then((m) => m.TiposVisitaComponent),
-      },
-      // Redirect legacy
-      { path: 'tipos-actividad', pathMatch: 'full', redirectTo: 'tipos-visita' },
+      // Redirects legacy para tipos de visita/actividad
+      { path: 'tipos-actividad', pathMatch: 'full', redirectTo: 'actividades' },
+      { path: 'tipos-visita',    pathMatch: 'full', redirectTo: 'actividades' },
 
       {
         path: 'usuarios',
