@@ -28,8 +28,8 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
             <span class="chip bg-slate-100 text-slate-700 ml-auto">{{ estadoLabel() }}</span>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
-            <div class="col-span-2">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
               <label class="label">Nombre cliente *</label>
               <input class="input" [(ngModel)]="model()!.nombre_cliente" name="nombre_cliente"/>
             </div>
@@ -70,7 +70,7 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
               ></app-direccion-autocomplete>
             </div>
 
-            <div class="col-span-2 rounded-md border border-slate-200 p-4 space-y-3">
+            <div class="md:col-span-2 rounded-md border border-slate-200 p-4 space-y-3">
               <div class="flex items-center justify-between">
                 <h4 class="text-sm font-semibold text-slate-700">Programación</h4>
                 <label class="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
@@ -79,7 +79,7 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
                 </label>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label class="label">Fecha inicio</label>
                   <input class="input" type="datetime-local"
@@ -121,7 +121,7 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
               }
             </div>
 
-            <div class="col-span-2">
+            <div class="md:col-span-2">
               <label class="label">Descripción</label>
               <textarea class="input min-h-[220px] resize-y" [(ngModel)]="model()!.descripcion" name="descripcion"></textarea>
             </div>
