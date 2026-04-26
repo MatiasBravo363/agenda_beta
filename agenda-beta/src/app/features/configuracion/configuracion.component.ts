@@ -32,6 +32,7 @@ import { ThemeService } from '../../core/theme/theme.service';
           ></span>
         </button>
       </div>
+
     </div>
   `,
 })

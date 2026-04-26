@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Session, User } from '@supabase/supabase-js';
+import * as Sentry from '@sentry/angular';
 import { SupabaseService } from '../supabase/supabase.service';
 import { PermisosService } from '../services/permisos.service';
 
@@ -15,15 +16,27 @@ export class AuthService {
   constructor() {
     this.sb.client.auth.getSession().then(({ data }) => {
       this.sessionSig.set(data.session);
-      if (data.session?.user) this.cargarPermisos(data.session.user.id);
+      if (data.session?.user) {
+        this.identifyForSentry(data.session.user);
+        this.cargarPermisos(data.session.user.id);
+      }
     });
     this.sb.client.auth.onAuthStateChange((event, session) => {
       this.sessionSig.set(session);
       if (event === 'SIGNED_IN' && session?.user) {
+        this.identifyForSentry(session.user);
         this.cargarPermisos(session.user.id);
       } else if (event === 'SIGNED_OUT') {
+        Sentry.setUser(null);
         this.permisos.limpiar();
       }
+    });
+  }
+
+  private identifyForSentry(user: User): void {
+    Sentry.setUser({
+      id: user.id,
+      email: user.email,
     });
   }
 

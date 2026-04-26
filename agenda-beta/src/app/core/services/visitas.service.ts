@@ -47,18 +47,75 @@ function flattenRels(row: Raw): Visita {
   return { ...rest, tecnicos, actividades } as Visita;
 }
 
+export interface VisitasListOpts {
+  limit?: number;
+  offset?: number;
+  estado?: EstadoVisita | '';
+  tecnicoId?: string | '__sin__' | '';
+  cliente?: string;
+  desde?: string;
+  hasta?: string;
+}
+
+export interface VisitasListResult {
+  items: Visita[];
+  total: number | null;
+}
+
+const DEFAULT_LIST_LIMIT = 500;
+
 @Injectable({ providedIn: 'root' })
 export class VisitasService {
   private sb = inject(SupabaseService);
   private readonly table = 'visitas';
 
+  /**
+   * Sin args: trae hasta DEFAULT_LIST_LIMIT (cap defensivo, antes traía
+   * dataset completo y reventaba con >5k visitas). Para listas paginables
+   * usar `listPaged()` que devuelve también el total y soporta filtros
+   * server-side.
+   */
   async list(): Promise<Visita[]> {
     const { data, error } = await this.sb.client
       .from(this.table)
       .select(SELECT_WITH_REL)
-      .order('fecha_inicio', { ascending: true, nullsFirst: false });
+      .order('fecha_inicio', { ascending: true, nullsFirst: false })
+      .limit(DEFAULT_LIST_LIMIT);
     if (error) throw error;
     return (data ?? []).map(flattenRels);
+  }
+
+  /**
+   * Versión paginada con filtros server-side. `total` devuelve el conteo
+   * exacto post-filtro (independiente del límite) — útil para mostrar
+   * "X de Y visitas" en la UI.
+   */
+  async listPaged(opts: VisitasListOpts = {}): Promise<VisitasListResult> {
+    const limit = opts.limit ?? DEFAULT_LIST_LIMIT;
+    const offset = opts.offset ?? 0;
+
+    let q = this.sb.client
+      .from(this.table)
+      .select(SELECT_WITH_REL, { count: 'exact' })
+      .order('fecha_inicio', { ascending: true, nullsFirst: false })
+      .range(offset, offset + limit - 1);
+
+    if (opts.estado) q = q.eq('estado', opts.estado);
+    if (opts.cliente) q = q.eq('nombre_cliente', opts.cliente);
+    if (opts.tecnicoId === '__sin__') {
+      q = q.is('tecnico_id', null);
+    } else if (opts.tecnicoId) {
+      q = q.eq('tecnico_id', opts.tecnicoId);
+    }
+    if (opts.desde) q = q.gte('fecha_inicio', opts.desde);
+    if (opts.hasta) q = q.lte('fecha_inicio', opts.hasta);
+
+    const { data, error, count } = await q;
+    if (error) throw error;
+    return {
+      items: (data ?? []).map(flattenRels),
+      total: count ?? null,
+    };
   }
 
   async setCantidadPendiente(id: string, cantidad: number): Promise<void> {

@@ -14,6 +14,7 @@ export class PermisosService {
   private codigosSig = signal<Set<PermisoCodigo>>(new Set());
   private tipoSig = signal<string | null>(null);
   private cargadoSig = signal(false);
+  private cargaPromise: Promise<void> | null = null;
 
   readonly codigos = computed(() => Array.from(this.codigosSig()));
   readonly tipo = this.tipoSig.asReadonly();
@@ -28,20 +29,45 @@ export class PermisosService {
     return codigos.some((c) => set.has(c));
   }
 
-  async cargar(userId: string): Promise<void> {
-    try {
-      const [codigos, tipoNombre] = await Promise.all([
-        this.tiposSvc.permisosDeUsuario(userId),
-        this.tiposSvc.list().then((tipos) => {
-          // Hack simple: buscar el tipo del usuario
-          return this.obtenerNombreTipo(userId, tipos);
-        }),
-      ]);
-      this.codigosSig.set(new Set(codigos));
-      this.tipoSig.set(tipoNombre);
-    } finally {
-      this.cargadoSig.set(true);
+  /**
+   * Devuelve una promesa que resuelve cuando la carga de permisos termina
+   * (con éxito o error). Si nadie llamó `cargar()` todavía, espera hasta
+   * `timeoutMs`; si no carga, lanza error → guards deben fallar cerrados.
+   */
+  async waitUntilLoaded(timeoutMs = 5000): Promise<void> {
+    if (this.cargadoSig()) return;
+    if (this.cargaPromise) {
+      await this.cargaPromise;
+      return;
     }
+    await new Promise<void>((resolve, reject) => {
+      const start = Date.now();
+      const tick = () => {
+        if (this.cargadoSig()) return resolve();
+        if (Date.now() - start > timeoutMs) return reject(new Error('PermisosService: timeout esperando carga'));
+        setTimeout(tick, 50);
+      };
+      tick();
+    });
+  }
+
+  async cargar(userId: string): Promise<void> {
+    this.cargaPromise = (async () => {
+      try {
+        const [codigos, tipoNombre] = await Promise.all([
+          this.tiposSvc.permisosDeUsuario(userId),
+          this.tiposSvc.list().then((tipos) => {
+            // Hack simple: buscar el tipo del usuario
+            return this.obtenerNombreTipo(userId, tipos);
+          }),
+        ]);
+        this.codigosSig.set(new Set(codigos));
+        this.tipoSig.set(tipoNombre);
+      } finally {
+        this.cargadoSig.set(true);
+      }
+    })();
+    return this.cargaPromise;
   }
 
   private async obtenerNombreTipo(userId: string, _tipos: Array<{ id: string; nombre: string }>): Promise<string | null> {
@@ -53,5 +79,6 @@ export class PermisosService {
     this.codigosSig.set(new Set());
     this.tipoSig.set(null);
     this.cargadoSig.set(false);
+    this.cargaPromise = null;
   }
 }
