@@ -32,9 +32,24 @@ import { ThemeService } from '../../core/theme/theme.service';
           ></span>
         </button>
       </div>
+
+      <div class="card p-6 flex items-center justify-between border-dashed border-2 border-amber-400/50">
+        <div>
+          <div class="font-semibold text-slate-800 dark:text-slate-100">Test Sentry (debug temporal)</div>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Dispara un error de prueba para verificar que Sentry recibe eventos. Se elimina una vez confirmado.
+          </p>
+        </div>
+        <button type="button" class="btn-secondary" (click)="testSentry()">Test Sentry</button>
+      </div>
     </div>
   `,
 })
 export class ConfiguracionComponent {
   theme = inject(ThemeService);
+
+  // DEBUG TEMPORAL — remover cuando Sentry confirme recepción de eventos
+  testSentry(): void {
+    throw new Error('configuracion test sentry ' + Date.now());
+  }
 }
