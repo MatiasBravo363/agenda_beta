@@ -20,14 +20,25 @@ import { Visita } from '../../core/models';
           </p>
         </div>
 
-        <div>
-          <label class="label">Fecha y hora de inicio *</label>
-          <input class="input" type="datetime-local" [(ngModel)]="fechaInicio" name="fi"/>
-        </div>
-        <div>
-          <label class="label">Fecha y hora de fin *</label>
-          <input class="input" type="datetime-local" [(ngModel)]="fechaFin" name="ff"/>
-        </div>
+        @if (esEnCola) {
+          <div class="rounded-md bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3">
+            <p class="text-sm text-slate-600 dark:text-slate-300">
+              Esta visita está en cola. El clon también quedará <strong>en cola</strong>, sin horario asignado.
+            </p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Podés agendarlo después editando la visita o arrastrándola al calendario.
+            </p>
+          </div>
+        } @else {
+          <div>
+            <label class="label">Fecha y hora de inicio *</label>
+            <input class="input" type="datetime-local" [(ngModel)]="fechaInicio" name="fi"/>
+          </div>
+          <div>
+            <label class="label">Fecha y hora de fin *</label>
+            <input class="input" type="datetime-local" [(ngModel)]="fechaFin" name="ff"/>
+          </div>
+        }
 
         @if (error()) {
           <p class="text-xs text-red-600">{{ error() }}</p>
@@ -46,14 +57,20 @@ import { Visita } from '../../core/models';
 export class VisitaClonarModalComponent implements OnInit {
   @Input({ required: true }) visita!: Visita;
   @Output() cancelar = new EventEmitter<void>();
-  @Output() confirmado = new EventEmitter<{ fecha_inicio: string; fecha_fin: string }>();
+  @Output() confirmado = new EventEmitter<{ fecha_inicio: string | null; fecha_fin: string | null }>();
 
   fechaInicio = '';
   fechaFin = '';
   clonando = signal(false);
   error = signal<string | null>(null);
 
+  get esEnCola(): boolean {
+    return this.visita.estado === 'en_cola';
+  }
+
   ngOnInit() {
+    if (this.esEnCola) return;
+
     // Redondeo al próximo bloque de 30 min
     const now = new Date();
     const minutos = now.getMinutes();
@@ -72,6 +89,13 @@ export class VisitaClonarModalComponent implements OnInit {
 
   confirmar() {
     this.error.set(null);
+
+    if (this.esEnCola) {
+      this.clonando.set(true);
+      this.confirmado.emit({ fecha_inicio: null, fecha_fin: null });
+      return;
+    }
+
     if (!this.fechaInicio || !this.fechaFin) {
       this.error.set('Ambas fechas son obligatorias.');
       return;
