@@ -201,7 +201,11 @@ export class UsersComponent implements OnInit {
   }
   async reload() { this.items.set(await this.svc.list()); }
   async loadTipos() {
-    try { this.tipos.set(await this.tiposSvc.list()); } catch {}
+    try {
+      this.tipos.set(await this.tiposSvc.list());
+    } catch (e) {
+      this.flash('err', mensajeGenericoDeError(e, 'No se pudieron cargar los tipos de usuario.'));
+    }
   }
 
   toggleSort(key: SortKey) {

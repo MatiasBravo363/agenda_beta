@@ -20,7 +20,7 @@ There is no lint script. Prettier is installed but has no wrapper script — inv
 
 ## Stack
 
-Angular 21 standalone components with **signals** (zoneless) + Tailwind 3 + FullCalendar 6 + ECharts (lazy-loaded; see commit `4394cb1` — importing echarts eagerly blows the 500 kB initial bundle budget configured in [agenda-beta/angular.json](agenda-beta/angular.json)) + `@supabase/supabase-js` + xlsx for exports. Deployed to Vercel as a SPA (rewrite all routes to `index.html`).
+Angular 21 standalone components with **signals** (zoneless) + Tailwind 3 + FullCalendar 6 + ECharts via `ngx-echarts` (lazy-loaded; see commit `4394cb1` — importing echarts eagerly blows the 500 kB initial bundle budget configured in [agenda-beta/angular.json](agenda-beta/angular.json)) + `@supabase/supabase-js` + `exceljs` + `file-saver` for XLSX exports. Deployed to Vercel as a SPA (rewrite all routes to `index.html`).
 
 ## Architecture
 

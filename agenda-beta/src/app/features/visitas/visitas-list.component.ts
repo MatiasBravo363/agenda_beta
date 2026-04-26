@@ -10,6 +10,7 @@ import { SpotlightCardComponent } from '../../shared/components/spotlight-card.c
 import { VisitaFormComponent } from './visita-form.component';
 import { VisitaClonarModalComponent } from '../../shared/components/visita-clonar-modal.component';
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
+import { mensajeGenericoDeError } from '../../core/services/service-error.util';
 
 interface GrupoDia {
   key: string;       // 'YYYY-MM-DD' o '__sin__'
@@ -53,6 +54,16 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
   imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, VisitaFormComponent, VisitaClonarModalComponent, SiTieneDirective],
   template: `
     <div class="space-y-4">
+      @if (feedback(); as f) {
+        <div
+          class="px-3 py-2 rounded text-sm"
+          [class.bg-green-100]="f.type === 'ok'"
+          [class.text-green-800]="f.type === 'ok'"
+          [class.bg-red-100]="f.type === 'err'"
+          [class.text-red-800]="f.type === 'err'"
+          role="alert"
+        >{{ f.msg }}</div>
+      }
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
         @for (e of estados; track e) {
           <app-spotlight-card
@@ -277,6 +288,7 @@ export class VisitasListComponent implements OnInit {
   diaSeleccionado = signal<string | null>(null);
   editandoId = signal<string | null>(null);
   clonandoVisita = signal<Visita | null>(null);
+  feedback = signal<{ type: 'ok' | 'err'; msg: string } | null>(null);
   private hoyDate = new Date();
   mesVisible = signal<{ year: number; month: number }>({
     year: this.hoyDate.getFullYear(),
@@ -495,10 +507,15 @@ export class VisitasListComponent implements OnInit {
       await this.svc.clone(v.id, ev.fecha_inicio, ev.fecha_fin);
       this.clonandoVisita.set(null);
       await this.reload();
-    } catch (e: any) {
-      alert(e?.message ?? 'No se pudo clonar la visita');
+    } catch (e) {
+      this.flash('err', mensajeGenericoDeError(e, 'No se pudo clonar la visita.'));
       this.clonandoVisita.set(null);
     }
+  }
+
+  private flash(type: 'ok' | 'err', msg: string) {
+    this.feedback.set({ type, msg });
+    setTimeout(() => this.feedback.set(null), 4000);
   }
 
   async remove(a: Visita) {

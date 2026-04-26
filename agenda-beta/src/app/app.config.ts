@@ -4,7 +4,7 @@ import { registerLocaleData } from '@angular/common';
 import localeEsCl from '@angular/common/locales/es-CL';
 
 import { routes } from './app.routes';
-import { ChunkReloadErrorHandler } from './core/error/chunk-reload.handler';
+import { SentryAwareErrorHandler } from './core/error/sentry-aware-error.handler';
 
 registerLocaleData(localeEsCl);
 
@@ -14,6 +14,6 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideRouter(routes),
     { provide: LOCALE_ID, useValue: 'es-CL' },
-    { provide: ErrorHandler, useClass: ChunkReloadErrorHandler },
+    { provide: ErrorHandler, useClass: SentryAwareErrorHandler },
   ],
 };
