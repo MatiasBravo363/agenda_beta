@@ -128,10 +128,15 @@ export class VisitasService {
 
   /**
    * Clona una visita conservando todos los datos originales (cliente, estado,
-   * ubicación, descripción, técnicos, actividades). Las nuevas fechas son
-   * obligatorias y las provee el usuario desde el modal de clonado.
+   * ubicación, descripción, técnicos, actividades). Las fechas son provistas
+   * por el modal de clonado. Si el original está en `en_cola`, las fechas
+   * llegan como null y el clon queda también en cola sin horario.
    */
-  async clone(originalId: string, fechaInicio: string, fechaFin: string): Promise<Visita> {
+  async clone(
+    originalId: string,
+    fechaInicio: string | null,
+    fechaFin: string | null,
+  ): Promise<Visita> {
     const original = await this.getById(originalId);
     if (!original) throw new Error('Visita original no encontrada');
     const tecnicosIds = (original.tecnicos ?? []).map((t) => t.id);

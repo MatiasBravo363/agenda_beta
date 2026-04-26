@@ -573,6 +573,10 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
   async confirmDrop() {
     const p = this.dropPending();
     if (!p) return;
+    if (!this.dropDuracion || this.dropDuracion <= 0) {
+      this.flash('err', 'La duración debe ser mayor a 0 minutos.');
+      return;
+    }
     if (this.tecnicoRequerido() && !this.dropTecnicoId) {
       this.flash('err', 'El estado elegido requiere un técnico.');
       return;

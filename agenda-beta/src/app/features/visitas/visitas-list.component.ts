@@ -488,7 +488,7 @@ export class VisitasListComponent implements OnInit {
     this.clonandoVisita.set(a);
   }
 
-  async onClonarConfirmado(ev: { fecha_inicio: string; fecha_fin: string }) {
+  async onClonarConfirmado(ev: { fecha_inicio: string | null; fecha_fin: string | null }) {
     const v = this.clonandoVisita();
     if (!v) return;
     try {

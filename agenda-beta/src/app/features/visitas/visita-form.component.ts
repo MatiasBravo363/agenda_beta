@@ -219,10 +219,14 @@ export class VisitaFormComponent implements OnInit {
     if (id && id !== 'nueva') {
       this.isNew = false;
       const a = await this.svc.getById(id);
-      if (a && a.estado !== 'en_cola' && a.fecha_inicio && !a.fecha_fin) {
-        // Visita agendada legacy sin fecha_fin: autocompletar con +60min para que
-        // el input no quede vacío y el usuario pueda corregir antes de guardar.
-        a.fecha_fin = new Date(new Date(a.fecha_inicio).getTime() + 60 * 60000).toISOString();
+      if (a && a.estado !== 'en_cola' && a.fecha_inicio) {
+        // Visita agendada con fecha_fin faltante o inválida (<= inicio):
+        // autocompletar con +60min para que el form abra sin errores y el
+        // usuario pueda ajustar antes de guardar.
+        const finValida = a.fecha_fin && new Date(a.fecha_fin) > new Date(a.fecha_inicio);
+        if (!finValida) {
+          a.fecha_fin = new Date(new Date(a.fecha_inicio).getTime() + 60 * 60000).toISOString();
+        }
       }
       this.model.set(a ?? null);
       if (a) {
@@ -352,7 +356,7 @@ export class VisitaFormComponent implements OnInit {
     this.clonando.set(original);
   }
 
-  async onClonarConfirmado(ev: { fecha_inicio: string; fecha_fin: string }) {
+  async onClonarConfirmado(ev: { fecha_inicio: string | null; fecha_fin: string | null }) {
     const v = this.clonando();
     if (!v) return;
     try {

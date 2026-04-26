@@ -1,6 +1,6 @@
 # Iteración: Visitas — Clonar con fechas
 Fecha: 2026-04-23
-Estado: esperando revisión
+Estado: cerrada
 
 ## Requerimiento
 Al apretar "Clonar" (desde la tabla de la lista o desde el modal de edición que se abre desde calendario), mostrar un modal que pida `fecha_inicio` y `fecha_fin` del clon. El resto de los datos del clon se copian tal cual del original (técnicos, actividades, estado, ubicación, descripción, cliente). Único campo que cambia: las fechas elegidas.
@@ -40,4 +40,13 @@ obligatoria
 6. Validaciones: dejar fin ≤ inicio → muestra error y bloquea.
 
 ## Mejora aplicada (tras revisión)
-_(se completa en Fase 3)_
+
+Release **1.0.11** — tres correcciones derivadas del feedback:
+
+1. **Clon de visita en `en_cola` no pide fechas**: el modal de clonar detecta si la visita está en cola y oculta los inputs de fecha, mostrando un mensaje informativo. El clon hereda el estado y se crea sin horario. Cubre la inconsistencia con la regla "sólo `en_cola` puede no tener fechas". Cambio en [visita-clonar-modal.component.ts](../../agenda-beta/src/app/shared/components/visita-clonar-modal.component.ts) + firma de [VisitasService.clone()](../../agenda-beta/src/app/core/services/visitas.service.ts) ahora acepta `fechaInicio` y `fechaFin` nullables.
+
+2. **Auto-fix extendido al abrir visita**: en [visita-form.component.ts](../../agenda-beta/src/app/features/visitas/visita-form.component.ts) `ngOnInit`, además del caso `fecha_fin` faltante, ahora detecta el caso `fecha_fin <= fecha_inicio` (datos inconsistentes legacy) y autocompleta a `inicio + 60min`. Esto resuelve el bug reportado de "fecha de fin debe ser posterior" al abrir visitas con datos sucios.
+
+3. **Validación preventiva en calendario**: en [visitas-calendar.component.ts](../../agenda-beta/src/app/features/visitas/visitas-calendar.component.ts) `confirmDrop()`, si `dropDuracion <= 0` muestra error y bloquea. Evita la causa raíz de los datos inconsistentes que disparaban el bug del item 2.
+
+Tipos de callbacks `onClonarConfirmado` actualizados a `{ fecha_inicio: string | null; fecha_fin: string | null }` en [visitas-list.component.ts](../../agenda-beta/src/app/features/visitas/visitas-list.component.ts) y [visita-form.component.ts](../../agenda-beta/src/app/features/visitas/visita-form.component.ts).
