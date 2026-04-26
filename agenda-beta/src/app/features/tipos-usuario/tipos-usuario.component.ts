@@ -141,7 +141,7 @@ export class TiposUsuarioComponent implements OnInit {
   async reload() {
     try {
       this.tipos.set(await this.svc.listConConteos());
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.flash('err', mensajeGenericoDeError(e, 'No se pudieron cargar los tipos.'));
     }
   }
@@ -159,7 +159,7 @@ export class TiposUsuarioComponent implements OnInit {
         descripcion: t.descripcion ?? '',
         permisoIds: new Set(permisoIds),
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.flash('err', mensajeGenericoDeError(e, 'No se pudo cargar el tipo.'));
     }
   }
@@ -192,7 +192,7 @@ export class TiposUsuarioComponent implements OnInit {
       this.editando.set(null);
       await this.reload();
       this.flash('ok', 'Tipo guardado.');
-    } catch (err: any) {
+    } catch (err: unknown) {
       this.flash('err', mensajeGenericoDeError(err, 'No se pudo guardar.'));
     } finally {
       this.guardando.set(false);
@@ -210,7 +210,7 @@ export class TiposUsuarioComponent implements OnInit {
       await this.svc.remove(t.id);
       await this.reload();
       this.flash('ok', 'Tipo eliminado.');
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.flash('err', mensajeGenericoDeError(e, 'No se pudo eliminar.'));
     }
   }

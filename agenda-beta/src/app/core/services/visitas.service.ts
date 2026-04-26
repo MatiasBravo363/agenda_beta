@@ -23,27 +23,59 @@ const UPDATABLE_FIELDS: (keyof Visita)[] = [
   'estado',
   'parent_visita_id',
   'cantidad_pendiente',
+  // updated_at se incluye solo en update() para optimistic locking
+  // (el trigger BEFORE UPDATE lo compara contra DB y rechaza si difiere).
+  'updated_at',
 ];
 
+/**
+ * Error tirado cuando la DB rechaza un UPDATE de visita por optimistic
+ * locking (la fila fue modificada por otro usuario después de que esta
+ * sesión la cargó). Código Postgres: 40001 (serialization_failure).
+ */
+export class ConflictoVisitaError extends Error {
+  constructor(message = 'Otro usuario modificó esta visita mientras la editabas. Recargá los datos para no pisar sus cambios.') {
+    super(message);
+    this.name = 'ConflictoVisitaError';
+  }
+}
+
+function isOptimisticLockError(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const code = (e as { code?: string }).code;
+  return code === '40001';
+}
+
 function toPayload(src: Partial<Visita>): Partial<Visita> {
-  const out: any = {};
+  const out: Partial<Visita> = {};
   for (const k of UPDATABLE_FIELDS) {
-    if (k in src) out[k] = (src as any)[k];
+    if (k in src) {
+      // El cast es seguro porque k está garantizado en UPDATABLE_FIELDS ⊂ keyof Visita
+      (out[k] as Visita[typeof k]) = src[k] as Visita[typeof k];
+    }
   }
   return out;
 }
 
-type Raw = any;
+type RawPivote<TKey extends string, TVal> = { [K in TKey]: TVal };
+type RawVisita = Partial<Visita> & {
+  tecnicos_rel?: RawPivote<'tecnico', Tecnico | null>[];
+  actividades_rel?: RawPivote<'actividad', Actividad | null>[];
+};
 
-function flattenRels(row: Raw): Visita {
-  if (!row) return row;
-  const tecnicos: Tecnico[] = Array.isArray(row.tecnicos_rel)
-    ? row.tecnicos_rel.map((r: any) => r.tecnico).filter(Boolean)
+// Supabase tipa el resultado de .select(string) como GenericStringError | T[],
+// no como T[] directo. Para evitar acoplarnos a esos tipos internos, recibimos
+// `unknown` y hacemos narrowing dentro de la función.
+function flattenRels(row: unknown): Visita {
+  if (!row || typeof row !== 'object') return row as unknown as Visita;
+  const r = row as RawVisita;
+  const tecnicos: Tecnico[] = Array.isArray(r.tecnicos_rel)
+    ? r.tecnicos_rel.map((p) => p.tecnico).filter((t): t is Tecnico => !!t)
     : [];
-  const actividades: Actividad[] = Array.isArray(row.actividades_rel)
-    ? row.actividades_rel.map((r: any) => r.actividad).filter(Boolean)
+  const actividades: Actividad[] = Array.isArray(r.actividades_rel)
+    ? r.actividades_rel.map((p) => p.actividad).filter((a): a is Actividad => !!a)
     : [];
-  const { tecnicos_rel, actividades_rel, ...rest } = row;
+  const { tecnicos_rel: _tr, actividades_rel: _ar, ...rest } = r;
   return { ...rest, tecnicos, actividades } as Visita;
 }
 
@@ -145,7 +177,7 @@ export class VisitasService {
       actividad_id: actividadesIds[0] ?? null,
     };
     const { data: userData } = await this.sb.client.auth.getUser();
-    const body: any = { ...toPayload(principalPayload), created_by: userData.user?.id ?? null };
+    const body = { ...toPayload(principalPayload), created_by: userData.user?.id ?? null };
     const { data, error } = await this.sb.client
       .from(this.table)
       .insert(body)
@@ -172,7 +204,10 @@ export class VisitasService {
       .eq('id', id)
       .select(SELECT_WITH_REL)
       .single();
-    if (error) throw error;
+    if (error) {
+      if (isOptimisticLockError(error)) throw new ConflictoVisitaError();
+      throw error;
+    }
     await this.syncPivote('visita_tecnicos', id, 'tecnico_id', tecnicosIds);
     await this.syncPivote('visita_actividades', id, 'actividad_id', actividadesIds);
     return (await this.getById(id)) ?? flattenRels(data);

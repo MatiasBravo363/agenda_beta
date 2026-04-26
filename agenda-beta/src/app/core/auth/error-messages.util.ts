@@ -5,12 +5,12 @@ import { environment } from '../../../environments/environment';
  * información (enumeración de usuarios, detalles de policies, etc.).
  * En dev se deja el error crudo en consola para debug.
  */
-export function mensajeAuthGenerico(e: any): string {
+export function mensajeAuthGenerico(e: unknown): string {
   if (!environment.production) {
     // eslint-disable-next-line no-console
     console.error('[auth]', e);
   }
-  const msg = String(e?.message ?? '').toLowerCase();
+  const msg = String((e as { message?: string })?.message ?? '').toLowerCase();
   if (!msg) return 'Hubo un problema, intenta más tarde.';
   if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
     return 'Credenciales inválidas.';

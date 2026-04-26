@@ -78,13 +78,13 @@ export class DireccionAutocompleteComponent {
   open = signal(false);
   loading = signal(false);
 
-  private debounceTimer: any = null;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private abortController: AbortController | null = null;
 
   onTyping(v: string) {
     this.value = v;
     this.valueChange.emit(v);
-    clearTimeout(this.debounceTimer);
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
     this.abortController?.abort();
     if (!v || v.trim().length < 3) {
       this.suggestions.set([]);
@@ -106,8 +106,8 @@ export class DireccionAutocompleteComponent {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as NominatimResult[];
       this.suggestions.set(data);
-    } catch (e: any) {
-      if (e?.name !== 'AbortError') this.suggestions.set([]);
+    } catch (e: unknown) {
+      if ((e as { name?: string })?.name !== 'AbortError') this.suggestions.set([]);
     } finally {
       this.loading.set(false);
     }

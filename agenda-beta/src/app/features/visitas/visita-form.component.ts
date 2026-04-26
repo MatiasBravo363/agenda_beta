@@ -1,7 +1,7 @@
 import { Component, computed, EventEmitter, inject, Input, OnInit, Output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { VisitasService } from '../../core/services/visitas.service';
+import { ConflictoVisitaError, VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { ActividadesService } from '../../core/services/actividades.service';
 import { Actividad, Tecnico, Visita } from '../../core/models';
@@ -331,8 +331,22 @@ export class VisitaFormComponent implements OnInit {
         await this.svc.update(m.id!, payload);
         if (this.embed) this.guardado.emit();
       }
-    } catch (e: any) {
-      this.error.set(e?.message ?? 'Error al guardar');
+    } catch (e: unknown) {
+      if (e instanceof ConflictoVisitaError) {
+        const reload = confirm(
+          `${e.message}\n\n¿Recargar la versión actual de la visita? Vas a perder tus cambios sin guardar.`,
+        );
+        if (reload && m.id) {
+          const fresh = await this.svc.getById(m.id);
+          if (fresh) this.model.set(fresh);
+          this.error.set('Recargado. Volvé a aplicar tus cambios.');
+        } else {
+          this.error.set('Edición cancelada por conflicto. Tu trabajo no se guardó.');
+        }
+      } else {
+        const msg = (e as { message?: string })?.message;
+        this.error.set(msg ?? 'Error al guardar');
+      }
     } finally {
       this.saving.set(false);
     }
@@ -364,8 +378,8 @@ export class VisitaFormComponent implements OnInit {
       this.clonando.set(null);
       if (this.embed) this.guardado.emit();
       else this.router.navigate(['/visitas', created.id]);
-    } catch (e: any) {
-      this.error.set(e?.message ?? 'No se pudo clonar la visita');
+    } catch (e: unknown) {
+      this.error.set((e as { message?: string })?.message ?? 'No se pudo clonar la visita');
       this.clonando.set(null);
     }
   }

@@ -70,8 +70,8 @@ export class RegisterComponent {
       await this.auth.signUp(this.email, this.password, this.nombre, this.apellido);
       this.success.set('Cuenta creada. Revisa tu correo si la confirmación está activa y luego inicia sesión.');
       setTimeout(() => this.router.navigate(['/login']), 1500);
-    } catch (e: any) {
-      this.error.set(e?.message ?? 'Error al crear la cuenta');
+    } catch (e: unknown) {
+      this.error.set((e as { message?: string })?.message ?? 'Error al crear la cuenta');
     } finally {
       this.loading.set(false);
     }

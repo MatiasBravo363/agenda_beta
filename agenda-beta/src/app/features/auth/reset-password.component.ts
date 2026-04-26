@@ -96,7 +96,7 @@ export class ResetPasswordComponent implements OnInit, OnDestroy {
       this.success.set(true);
       await this.sb.client.auth.signOut();
       setTimeout(() => this.router.navigate(['/login']), 2000);
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.error.set(mensajeAuthGenerico(e));
     } finally {
       this.loading.set(false);
