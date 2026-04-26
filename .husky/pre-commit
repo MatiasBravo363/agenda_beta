@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# Hook compartido del repo. Para activarlo después de clonar:
+#   git config core.hooksPath .husky
+# (CI valida lint+test+build igualmente; este hook es para feedback local)
+
+cd agenda-beta || exit 0
+npx --no-install lint-staged --relative
