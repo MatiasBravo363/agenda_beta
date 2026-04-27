@@ -1,20 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { baseOptions, gradientColorByRate, paletteColor, TIPO_PALETTE } from './charts.util';
+import { baseOptions, chartSubtextColor, chartTextColor, gradientColorByRate, paletteColor, TIPO_PALETTE } from './charts.util';
 
 describe('charts.util', () => {
   describe('baseOptions', () => {
-    it('devuelve textStyle, tooltip, legend y grid', () => {
+    it('devuelve solo textStyle (sin grid/legend/tooltip que rompian charts cuando se mezclaban)', () => {
       const opts = baseOptions(false);
       expect(opts.textStyle).toBeDefined();
-      expect(opts.tooltip).toBeDefined();
-      expect(opts.legend).toBeDefined();
-      expect(opts.grid).toBeDefined();
+      expect(opts.grid).toBeUndefined();
+      expect(opts.legend).toBeUndefined();
+      expect(opts.tooltip).toBeUndefined();
     });
 
     it('cambia el color del texto segun tema', () => {
-      const light = baseOptions(false);
-      const dark = baseOptions(true);
-      expect(light.textStyle).not.toEqual(dark.textStyle);
+      expect(chartTextColor(false)).not.toEqual(chartTextColor(true));
+      expect(chartSubtextColor(false)).not.toEqual(chartSubtextColor(true));
     });
   });
 

@@ -10,7 +10,7 @@ import { Actividad, EstadoVisita, Visita, Tecnico } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeEstado } from '../../core/utils/estado.util';
 import { ThemeService } from '../../core/theme/theme.service';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
-import { baseOptions, gradientColorByRate, paletteColor, TIPO_PALETTE } from './charts.util';
+import { chartSubtextColor, chartTextColor, chartTooltipBg, chartTooltipBorder, gradientColorByRate, paletteColor, TIPO_PALETTE } from './charts.util';
 
 interface TipoSlice {
   nombre: string;
@@ -417,17 +417,22 @@ export class DashboardComponent implements OnInit {
     }
 
     return {
-      ...baseOptions(dark),
-      tooltip: { ...(baseOptions(dark).tooltip as object), trigger: 'axis' },
+      textStyle: { color: chartTextColor(dark) },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: chartTooltipBg(dark),
+        borderColor: chartTooltipBorder(dark),
+        textStyle: { color: chartTextColor(dark) },
+      },
       legend: {
-        ...(baseOptions(dark).legend as object),
         data: actividadesFinales.map((a) => a.nombre),
         bottom: 0,
         type: 'scroll',
+        textStyle: { color: chartSubtextColor(dark) },
       },
       grid: { left: 40, right: 20, top: 20, bottom: 50, containLabel: true },
-      xAxis: { type: 'category', data: days, boundaryGap: false },
-      yAxis: { type: 'value', minInterval: 1 },
+      xAxis: { type: 'category', data: days, boundaryGap: false, axisLabel: { color: chartSubtextColor(dark) } },
+      yAxis: { type: 'value', minInterval: 1, axisLabel: { color: chartSubtextColor(dark) } },
       series: actividadesFinales.map((a, i) => ({
         name: a.nombre,
         type: 'line' as const,
@@ -459,27 +464,34 @@ export class DashboardComponent implements OnInit {
     const totalText = `${list.length}\nvisitas`;
 
     return {
-      ...baseOptions(dark),
-      tooltip: { ...(baseOptions(dark).tooltip as object), trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-      legend: { ...(baseOptions(dark).legend as object), bottom: 0, type: 'scroll' },
+      textStyle: { color: chartTextColor(dark) },
+      tooltip: {
+        trigger: 'item',
+        formatter: '{b}: {c} ({d}%)',
+        backgroundColor: chartTooltipBg(dark),
+        borderColor: chartTooltipBorder(dark),
+        textStyle: { color: chartTextColor(dark) },
+      },
+      legend: { bottom: 0, type: 'scroll', textStyle: { color: chartSubtextColor(dark) } },
       series: [{
         type: 'pie',
-        radius: ['50%', '75%'],
+        radius: ['45%', '70%'],
         center: ['50%', '45%'],
         avoidLabelOverlap: true,
-        label: { show: true, formatter: '{d}%', color: dark ? '#e2e8f0' : '#334155' },
+        label: { show: true, formatter: '{d}%', color: chartTextColor(dark) },
+        labelLine: { show: true },
         data,
       }],
       graphic: {
         type: 'text',
         left: 'center',
-        top: '40%',
+        top: '38%',
         style: {
           text: totalText,
           textAlign: 'center',
           fontSize: 16,
           fontWeight: 600,
-          fill: dark ? '#e2e8f0' : '#334155',
+          fill: chartTextColor(dark),
         },
       },
     };
@@ -525,36 +537,54 @@ export class DashboardComponent implements OnInit {
   chartBarrasTecnicos = computed<EChartsOption>(() => {
     const dark = this.theme.isDark();
     const data = this.tecnicosAgregados();
+    // Datos para el chart: yAxis en orden ascendente (mayor abajo), barras paralelas.
+    // Echarts pinta yAxis category de arriba a abajo, por eso revertimos para que
+    // el técnico con más visitas quede arriba.
+    const ordenado = [...data].reverse();
+    const counts = ordenado.map((d) => d.count);
 
     return {
-      ...baseOptions(dark),
+      textStyle: { color: chartTextColor(dark) },
       tooltip: {
-        ...(baseOptions(dark).tooltip as object),
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        backgroundColor: chartTooltipBg(dark),
+        borderColor: chartTooltipBorder(dark),
+        textStyle: { color: chartTextColor(dark) },
         formatter: (params: unknown) => {
-          const arr = params as { name: string; value: number; data: { count: number } }[];
+          const arr = params as { name: string; value: number; dataIndex: number }[];
           if (!arr.length) return '';
           const p = arr[0];
-          return `${p.name}<br/>${p.data.count} visitas (${p.value.toFixed(1)}%)`;
+          const orig = ordenado[p.dataIndex];
+          return `${p.name}<br/>${orig.count} visitas (${orig.pct.toFixed(1)}%)`;
         },
       },
-      grid: { left: 10, right: 60, top: 10, bottom: 30, containLabel: true },
-      xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
-      yAxis: { type: 'category', data: data.map((d) => d.nombre).reverse(), inverse: true },
+      grid: { left: 10, right: 80, top: 10, bottom: 30, containLabel: true },
+      xAxis: {
+        type: 'value',
+        axisLabel: { color: chartSubtextColor(dark) },
+        splitLine: { lineStyle: { color: dark ? '#334155' : '#e2e8f0' } },
+      },
+      yAxis: {
+        type: 'category',
+        data: ordenado.map((d) => d.nombre),
+        axisLabel: { color: chartSubtextColor(dark) },
+      },
       series: [{
         type: 'bar',
-        data: data.map((d) => ({
-          value: Number(d.pct.toFixed(2)),
-          count: d.count,
-          itemStyle: { color: d.bermann ? COLOR_BERMANN : COLOR_EXTERNO },
-        })),
+        data: counts,
+        itemStyle: {
+          color: (params: unknown) => {
+            const idx = (params as { dataIndex: number }).dataIndex;
+            return ordenado[idx].bermann ? COLOR_BERMANN : COLOR_EXTERNO;
+          },
+        },
         label: {
           show: true,
           position: 'right',
           formatter: (p: unknown) => {
-            const d = (p as { data: { count: number; value: number } }).data;
-            return `${d.count} (${d.value.toFixed(1)}%)`;
+            const orig = ordenado[(p as { dataIndex: number }).dataIndex];
+            return `${orig.count} (${orig.pct.toFixed(1)}%)`;
           },
           color: dark ? '#cbd5e1' : '#475569',
         },
@@ -584,13 +614,23 @@ export class DashboardComponent implements OnInit {
     }));
 
     return {
-      ...baseOptions(dark),
-      tooltip: { ...(baseOptions(dark).tooltip as object), trigger: 'item', formatter: '{b}: {c} visitas' },
+      textStyle: { color: chartTextColor(dark) },
+      tooltip: {
+        trigger: 'item',
+        formatter: '{b}: {c} visitas',
+        backgroundColor: chartTooltipBg(dark),
+        borderColor: chartTooltipBorder(dark),
+        textStyle: { color: chartTextColor(dark) },
+      },
       series: [{
         type: 'funnel',
         sort: 'none',
         gap: 2,
-        label: { show: true, position: 'inside', color: '#fff', fontWeight: 600 },
+        left: '10%',
+        right: '10%',
+        top: '5%',
+        bottom: '5%',
+        label: { show: true, position: 'inside', color: '#fff', fontWeight: 600, formatter: '{b}: {c}' },
         data,
       }],
     };
@@ -627,38 +667,52 @@ export class DashboardComponent implements OnInit {
   chartFallosPorActividad = computed<EChartsOption>(() => {
     const dark = this.theme.isDark();
     const data = this.fallosAgregados();
+    const ordenado = [...data].reverse();
+    const tasas = ordenado.map((d) => Number(d.tasa.toFixed(2)));
 
     return {
-      ...baseOptions(dark),
+      textStyle: { color: chartTextColor(dark) },
       tooltip: {
-        ...(baseOptions(dark).tooltip as object),
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
+        backgroundColor: chartTooltipBg(dark),
+        borderColor: chartTooltipBorder(dark),
+        textStyle: { color: chartTextColor(dark) },
         formatter: (params: unknown) => {
-          const arr = params as { name: string; data: { tasa: number; total: number; fallidas: number } }[];
+          const arr = params as { name: string; dataIndex: number }[];
           if (!arr.length) return '';
           const p = arr[0];
-          return `${p.name}<br/>${p.data.fallidas}/${p.data.total} fallidas (${p.data.tasa.toFixed(1)}%)`;
+          const orig = ordenado[p.dataIndex];
+          return `${p.name}<br/>${orig.fallidas}/${orig.total} fallidas (${orig.tasa.toFixed(1)}%)`;
         },
       },
-      grid: { left: 10, right: 60, top: 10, bottom: 30, containLabel: true },
-      xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
-      yAxis: { type: 'category', data: data.map((d) => d.nombre).reverse(), inverse: true },
+      grid: { left: 10, right: 80, top: 10, bottom: 30, containLabel: true },
+      xAxis: {
+        type: 'value',
+        max: 100,
+        axisLabel: { formatter: '{value}%', color: chartSubtextColor(dark) },
+        splitLine: { lineStyle: { color: dark ? '#334155' : '#e2e8f0' } },
+      },
+      yAxis: {
+        type: 'category',
+        data: ordenado.map((d) => d.nombre),
+        axisLabel: { color: chartSubtextColor(dark) },
+      },
       series: [{
         type: 'bar',
-        data: data.map((d) => ({
-          value: Number(d.tasa.toFixed(2)),
-          tasa: d.tasa,
-          total: d.total,
-          fallidas: d.fallidas,
-          itemStyle: { color: gradientColorByRate(d.tasa) },
-        })),
+        data: tasas,
+        itemStyle: {
+          color: (params: unknown) => {
+            const idx = (params as { dataIndex: number }).dataIndex;
+            return gradientColorByRate(ordenado[idx].tasa);
+          },
+        },
         label: {
           show: true,
           position: 'right',
           formatter: (p: unknown) => {
-            const d = (p as { data: { tasa: number; fallidas: number; total: number } }).data;
-            return `${d.fallidas}/${d.total} (${d.tasa.toFixed(0)}%)`;
+            const orig = ordenado[(p as { dataIndex: number }).dataIndex];
+            return `${orig.fallidas}/${orig.total} (${orig.tasa.toFixed(0)}%)`;
           },
           color: dark ? '#cbd5e1' : '#475569',
         },
@@ -692,11 +746,19 @@ export class DashboardComponent implements OnInit {
       }
     }
 
+    // En dark mode usar gradiente claro→amarillo→naranja para que destaque sobre slate-950.
+    // En light mode el azul oscuro funciona bien sobre fondo blanco.
+    const inRangeColors = dark
+      ? ['#1e293b', '#facc15', '#f97316', '#dc2626']
+      : ['#dbeafe', '#3b82f6', '#1e3a8a'];
+
     return {
-      ...baseOptions(dark),
+      textStyle: { color: chartTextColor(dark) },
       tooltip: {
-        ...(baseOptions(dark).tooltip as object),
         position: 'top',
+        backgroundColor: chartTooltipBg(dark),
+        borderColor: chartTooltipBorder(dark),
+        textStyle: { color: chartTextColor(dark) },
         formatter: (p: unknown) => {
           const params = p as { data: [number, number, number] };
           const [h, d, c] = params.data;
@@ -704,8 +766,18 @@ export class DashboardComponent implements OnInit {
         },
       },
       grid: { left: 50, right: 30, top: 30, bottom: 60, containLabel: true },
-      xAxis: { type: 'category', data: HORAS_LABEL, splitArea: { show: true } },
-      yAxis: { type: 'category', data: DIAS_LABEL, splitArea: { show: true } },
+      xAxis: {
+        type: 'category',
+        data: HORAS_LABEL,
+        splitArea: { show: true },
+        axisLabel: { color: chartSubtextColor(dark) },
+      },
+      yAxis: {
+        type: 'category',
+        data: DIAS_LABEL,
+        splitArea: { show: true },
+        axisLabel: { color: chartSubtextColor(dark) },
+      },
       visualMap: {
         min: 0,
         max: Math.max(1, max),
@@ -713,8 +785,8 @@ export class DashboardComponent implements OnInit {
         orient: 'horizontal',
         left: 'center',
         bottom: 5,
-        textStyle: { color: dark ? '#cbd5e1' : '#475569' },
-        inRange: { color: ['#dbeafe', '#3b82f6', '#1e3a8a'] },
+        textStyle: { color: chartSubtextColor(dark) },
+        inRange: { color: inRangeColors },
       },
       series: [{
         type: 'heatmap',

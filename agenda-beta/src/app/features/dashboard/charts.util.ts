@@ -6,25 +6,32 @@ export const TIPO_PALETTE = [
 ];
 
 /**
- * Devuelve overrides comunes para todos los charts del dashboard
- * (tooltip, grid, textStyle). Los charts hacen `{ ...baseOptions(dark), ...specifics }`
- * para mantener una apariencia consistente y dark-mode aware.
+ * Devuelve solo `textStyle` global. Los charts NO deben hacer spread
+ * de un objeto con `grid`/`legend`/`tooltip` porque echarts trata mal
+ * las properties cuando se mezclan vía object spread (los pies/funnel
+ * heredan grid de bar/line y las barras horizontales pierden series).
+ *
+ * Mejor que cada chart defina su tooltip/legend/grid de forma explícita
+ * usando los color helpers de abajo.
  */
 export function baseOptions(themeDark: boolean): EChartsOption {
-  const text = themeDark ? '#e2e8f0' : '#334155';
-  const subtext = themeDark ? '#94a3b8' : '#64748b';
-  const tooltipBg = themeDark ? '#1e293b' : '#ffffff';
-  const tooltipBorder = themeDark ? '#334155' : '#e2e8f0';
-  return {
-    textStyle: { color: text },
-    tooltip: {
-      backgroundColor: tooltipBg,
-      borderColor: tooltipBorder,
-      textStyle: { color: text },
-    },
-    legend: { textStyle: { color: subtext } },
-    grid: { left: 40, right: 20, top: 30, bottom: 50, containLabel: true },
-  };
+  return { textStyle: { color: chartTextColor(themeDark) } };
+}
+
+export function chartTextColor(themeDark: boolean): string {
+  return themeDark ? '#e2e8f0' : '#334155';
+}
+
+export function chartSubtextColor(themeDark: boolean): string {
+  return themeDark ? '#94a3b8' : '#64748b';
+}
+
+export function chartTooltipBg(themeDark: boolean): string {
+  return themeDark ? '#1e293b' : '#ffffff';
+}
+
+export function chartTooltipBorder(themeDark: boolean): string {
+  return themeDark ? '#334155' : '#e2e8f0';
 }
 
 /**
