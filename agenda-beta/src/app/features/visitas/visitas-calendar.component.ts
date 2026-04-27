@@ -88,14 +88,19 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
   `],
   template: `
     <div class="space-y-4">
-      <!-- KPIs por estado -->
+      <!-- KPIs por estado: clickeables como filtro -->
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
         @for (e of estados; track e) {
-          <app-spotlight-card
-            [title]="ESTADO_LABEL[e]"
-            [count]="kpiPorEstado()[e]"
-            [customColor]="colorDeEstado(e)"
-          ></app-spotlight-card>
+          <button type="button" class="text-left" (click)="toggleEstadoFiltro(e)"
+                  [attr.aria-pressed]="fEstado() === e"
+                  [attr.title]="fEstado() === e ? 'Click para limpiar el filtro' : 'Click para filtrar por ' + ESTADO_LABEL[e]">
+            <app-spotlight-card
+              [title]="ESTADO_LABEL[e]"
+              [count]="kpiPorEstado()[e]"
+              [customColor]="colorDeEstado(e)"
+              [active]="fEstado() === e"
+            ></app-spotlight-card>
+          </button>
         }
       </div>
 
@@ -599,6 +604,11 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
 
   clearFilters() {
     this.fCliente.set(''); this.fTecnico.set(''); this.fEstado.set(''); this.fTipo.set('');
+  }
+
+  /** Toggle de filtro por estado vía las KPI cards. */
+  toggleEstadoFiltro(estado: EstadoVisita) {
+    this.fEstado.set(this.fEstado() === estado ? '' : estado);
   }
 
   colorDe(a: Visita) { return colorDeVisita(a, a.tecnico); }

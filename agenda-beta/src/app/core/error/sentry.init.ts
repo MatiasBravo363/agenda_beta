@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/angular';
 import { environment } from '../../../environments/environment';
 
-const APP_VERSION = '1.0.14';
+const APP_VERSION = '1.0.15';
 
 const PII_KEYS = /password|token|authorization|api[-_]?key|secret/i;
 

@@ -24,8 +24,8 @@ export function labelDia(key: string): string {
 
 /**
  * Agrupa una lista de visitas por día (clave 'YYYY-MM-DD' o '__sin__'
- * para las que no tienen fecha). Días ordenados ascendente, '__sin__'
- * siempre al final.
+ * para las que no tienen fecha). Días ordenados **descendente** (más reciente
+ * primero), '__sin__' siempre al final.
  *
  * Función pura, testeable sin Angular.
  */
@@ -37,10 +37,11 @@ export function agruparPorDia(visitas: readonly Visita[]): GrupoDia[] {
     arr.push(v);
     map.set(k, arr);
   }
+  // Orden descendente por key (YYYY-MM-DD ordena lexicográficamente igual que cronológicamente).
   const keys = Array.from(map.keys()).sort((a, b) => {
     if (a === '__sin__') return 1;
     if (b === '__sin__') return -1;
-    return a < b ? -1 : a > b ? 1 : 0;
+    return a < b ? 1 : a > b ? -1 : 0;
   });
   return keys.map((k) => ({
     key: k,

@@ -35,15 +35,27 @@ describe('visitas-grupos.util', () => {
     expect(label).toContain('2026');
   });
 
-  it('agruparPorDia agrupa por día y ordena cronológicamente', () => {
+  it('agruparPorDia agrupa por día y ordena descendente (más reciente primero)', () => {
     const visitas = [
       v('a', '2026-04-15T10:00:00'),
       v('b', '2026-04-14T10:00:00'),
       v('c', '2026-04-15T16:00:00'),
     ];
     const grupos = agruparPorDia(visitas);
-    expect(grupos.map((g) => g.key)).toEqual(['2026-04-14', '2026-04-15']);
-    expect(grupos[1].items.map((i) => i.id)).toEqual(['a', 'c']);
+    // Cambio 1.0.15: orden descendente para que el día más reciente quede arriba.
+    expect(grupos.map((g) => g.key)).toEqual(['2026-04-15', '2026-04-14']);
+    // Dentro del día se mantiene el orden de inserción (luego el componente puede aplicar otro sort).
+    expect(grupos[0].items.map((i) => i.id)).toEqual(['a', 'c']);
+  });
+
+  it('agruparPorDia con 3 días distintos los devuelve en orden descendente', () => {
+    const visitas = [
+      v('x', '2026-04-25T09:00:00'),
+      v('y', '2026-04-27T09:00:00'),
+      v('z', '2026-04-26T09:00:00'),
+    ];
+    const grupos = agruparPorDia(visitas);
+    expect(grupos.map((g) => g.key)).toEqual(['2026-04-27', '2026-04-26', '2026-04-25']);
   });
 
   it('agruparPorDia mete las sin-fecha al final con clave __sin__', () => {

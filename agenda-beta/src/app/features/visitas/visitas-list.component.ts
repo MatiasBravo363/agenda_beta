@@ -10,7 +10,6 @@ import { SpotlightCardComponent } from '../../shared/components/spotlight-card.c
 import { VisitaFormComponent } from './visita-form.component';
 import { VisitaClonarModalComponent } from '../../shared/components/visita-clonar-modal.component';
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
-import { FeatureDirective } from '../../shared/directives/feature.directive';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
 import { mensajeGenericoDeError } from '../../core/services/service-error.util';
 import { agruparPorDia, diaKey, labelDia, GrupoDia } from './visitas-grupos.util';
@@ -37,7 +36,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
 @Component({
   selector: 'app-visitas-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, VisitaFormComponent, VisitaClonarModalComponent, SiTieneDirective, FeatureDirective, SkeletonComponent],
+  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, VisitaFormComponent, VisitaClonarModalComponent, SiTieneDirective, SkeletonComponent],
   template: `
     <div class="space-y-4">
       @if (feedback(); as f) {
@@ -52,11 +51,16 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
       }
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
         @for (e of estados; track e) {
-          <app-spotlight-card
-            [title]="ESTADO_LABEL[e]"
-            [count]="kpiPorEstado()[e]"
-            [customColor]="colorDeEstado(e)"
-          ></app-spotlight-card>
+          <button type="button" class="text-left" (click)="toggleEstadoFiltro(e)"
+                  [attr.aria-pressed]="aplicados().estado === e"
+                  [attr.title]="aplicados().estado === e ? 'Click para limpiar el filtro' : 'Click para filtrar por ' + ESTADO_LABEL[e]">
+            <app-spotlight-card
+              [title]="ESTADO_LABEL[e]"
+              [count]="kpiPorEstado()[e]"
+              [customColor]="colorDeEstado(e)"
+              [active]="aplicados().estado === e"
+            ></app-spotlight-card>
+          </button>
         }
       </div>
 
@@ -110,8 +114,9 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
         </div>
       </div>
 
-      <!-- Footer de paginación (controlado por feature flag) -->
-      <div *appFeature="'ui_paginacion_visible'" class="card p-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+      <!-- Footer de paginación: visible siempre desde 1.0.15 (antes detrás de feature flag).
+           Sin él, el usuario solo veía 50 visitas y no podía recorrer el resto. -->
+      <div class="card p-3 flex flex-wrap items-center justify-between gap-3 text-sm">
         <div class="flex items-center gap-2">
           <span class="text-slate-500 dark:text-slate-400">Mostrar</span>
           <select
@@ -503,6 +508,18 @@ export class VisitasListComponent implements OnInit {
     this.aplicados.set({ ...this.pendiente });
     this.pagina.set(0);
     this.reload();
+  }
+
+  /**
+   * Toggle de filtro por estado vía las KPI cards.
+   * - Si el estado ya está aplicado → limpia el filtro de estado.
+   * - Si no → setea el estado y aplica.
+   * Mantiene el resto de los filtros (cliente, técnico, fechas, etc.).
+   */
+  toggleEstadoFiltro(estado: EstadoVisita) {
+    const yaAplicado = this.aplicados().estado === estado;
+    this.pendiente.estado = yaAplicado ? '' : estado;
+    this.aplicarFiltros();
   }
 
   limpiarFiltros() {
