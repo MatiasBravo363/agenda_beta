@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ConflictoVisitaError, VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { ActividadesService } from '../../core/services/actividades.service';
-import { Actividad, Tecnico, Visita } from '../../core/models';
+import { Actividad, EstadoVisita, Tecnico, Visita } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeVisita } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { MultiSelectComponent, MultiSelectOption } from '../../shared/components/multi-select.component';
@@ -181,6 +181,10 @@ export class VisitaFormComponent implements OnInit {
   duracionMin = signal(60);
   clonando = signal<Visita | null>(null);
   isNew = true;
+  // Estado de la visita al cargarse, para detectar transiciones a "completada"
+  // y pedir confirmación. Si cambia el modelo en signal, este campo NO se
+  // toca (refleja siempre el valor inicial leído de DB).
+  estadoOriginal: EstadoVisita | null = null;
 
   tecnicosOptions = computed<MultiSelectOption[]>(() =>
     this.tecnicos().map((t) => ({
@@ -230,6 +234,7 @@ export class VisitaFormComponent implements OnInit {
       }
       this.model.set(a ?? null);
       if (a) {
+        this.estadoOriginal = a.estado;
         const tIds = (a.tecnicos ?? []).map((x) => x.id);
         this.tecnicosIds.set(tIds.length ? tIds : a.tecnico_id ? [a.tecnico_id] : []);
         const actIds = (a.actividades ?? []).map((x) => x.id);
@@ -316,6 +321,15 @@ export class VisitaFormComponent implements OnInit {
     }
     const fe = this.fechaError();
     if (fe) { this.error.set(fe); return; }
+    // Confirmación explícita al marcar como completada (acción semánticamente
+    // terminal: la migración 013 bloquea salir de "completada" para usuarios no
+    // super_admin, así que un click accidental queda atrapado).
+    if (!this.isNew && m.estado === 'completada' && this.estadoOriginal !== 'completada') {
+      const ok = confirm(
+        '¿Marcar la visita como Completada? La transición se registra en el historial y no podés revertirla salvo que seas super_admin.',
+      );
+      if (!ok) return;
+    }
     const payload: Partial<Visita> = {
       ...m,
       tecnicos_ids: this.tecnicosIds(),
@@ -338,7 +352,10 @@ export class VisitaFormComponent implements OnInit {
         );
         if (reload && m.id) {
           const fresh = await this.svc.getById(m.id);
-          if (fresh) this.model.set(fresh);
+          if (fresh) {
+            this.model.set(fresh);
+            this.estadoOriginal = fresh.estado;
+          }
           this.error.set('Recargado. Volvé a aplicar tus cambios.');
         } else {
           this.error.set('Edición cancelada por conflicto. Tu trabajo no se guardó.');
