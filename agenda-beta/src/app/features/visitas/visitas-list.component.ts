@@ -13,28 +13,12 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 import { FeatureDirective } from '../../shared/directives/feature.directive';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
 import { mensajeGenericoDeError } from '../../core/services/service-error.util';
+import { agruparPorDia, diaKey, labelDia, GrupoDia } from './visitas-grupos.util';
 
-interface GrupoDia {
-  key: string;       // 'YYYY-MM-DD' o '__sin__'
-  label: string;     // 'Lunes 21 de abril de 2026' o 'Sin fecha'
-  items: Visita[];
-}
-
+// diaKey, labelDia, GrupoDia y agruparPorDia se extrajeron a visitas-grupos.util.ts
+// para que sean testeables y reutilizables (Fase 5 del plan 1.0.13).
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const DIAS_LARGOS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-
-function diaKey(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  const pad = (n: number) => `${n}`.padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-function labelDia(key: string): string {
-  const [y, m, d] = key.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return `${DIAS_LARGOS[date.getDay()]} ${d} de ${MESES[m - 1]} de ${y}`;
-}
 
 type SortKey = 'numero' | 'creador' | 'creado' | 'horario' | 'estado' | 'cliente' | 'tipo' | 'ubicacion';
 type SortDir = 'asc' | 'desc';
@@ -429,25 +413,7 @@ export class VisitasListComponent implements OnInit {
     });
   });
 
-  gruposPorDia = computed<GrupoDia[]>(() => {
-    const map = new Map<string, Visita[]>();
-    for (const a of this.filtradas()) {
-      const k = diaKey(a.fecha_inicio) ?? '__sin__';
-      const arr = map.get(k) ?? [];
-      arr.push(a);
-      map.set(k, arr);
-    }
-    const keys = Array.from(map.keys()).sort((a, b) => {
-      if (a === '__sin__') return 1;
-      if (b === '__sin__') return -1;
-      return a < b ? -1 : a > b ? 1 : 0;
-    });
-    return keys.map((k) => ({
-      key: k,
-      label: k === '__sin__' ? 'Sin fecha' : labelDia(k),
-      items: map.get(k)!,
-    }));
-  });
+  gruposPorDia = computed<GrupoDia[]>(() => agruparPorDia(this.filtradas()));
 
   diasConVisitas = computed<Set<string>>(() => {
     const s = new Set<string>();

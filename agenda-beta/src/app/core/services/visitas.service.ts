@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import * as Sentry from '@sentry/angular';
 import { SupabaseService } from '../supabase/supabase.service';
 import { Actividad, EstadoVisita, Tecnico, Visita } from '../models';
 
@@ -187,6 +188,12 @@ export class VisitasService {
     const created = flattenRels(data);
     await this.syncPivote('visita_tecnicos', created.id, 'tecnico_id', tecnicosIds);
     await this.syncPivote('visita_actividades', created.id, 'actividad_id', actividadesIds);
+    Sentry.addBreadcrumb({
+      category: 'visita',
+      message: 'visita_creada',
+      level: 'info',
+      data: { id: created.id, estado: created.estado, numero: created.numero },
+    });
     return (await this.getById(created.id)) ?? created;
   }
 
@@ -210,7 +217,14 @@ export class VisitasService {
     }
     await this.syncPivote('visita_tecnicos', id, 'tecnico_id', tecnicosIds);
     await this.syncPivote('visita_actividades', id, 'actividad_id', actividadesIds);
-    return (await this.getById(id)) ?? flattenRels(data);
+    const updated = flattenRels(data);
+    Sentry.addBreadcrumb({
+      category: 'visita',
+      message: 'visita_actualizada',
+      level: 'info',
+      data: { id, estado: updated.estado, numero: updated.numero },
+    });
+    return (await this.getById(id)) ?? updated;
   }
 
   async remove(id: string): Promise<void> {
