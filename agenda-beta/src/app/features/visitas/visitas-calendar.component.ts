@@ -1,7 +1,7 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { FullCalendarModule } from '@fullcalendar/angular';
+import { FullCalendarComponent, FullCalendarModule } from '@fullcalendar/angular';
 import { CalendarOptions, EventInput, EventDropArg, DateSelectArg } from '@fullcalendar/core';
 import { Draggable, EventResizeDoneArg } from '@fullcalendar/interaction';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -71,6 +71,20 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
     }
     :host ::ng-deep .fc-timegrid-event { margin-right: 2px; }
     :host ::ng-deep .fc-daygrid-event { padding: 2px 6px; }
+
+    /* Sidebar "En cola" plegable: transición de ancho + animación pulse cuando está plegado y hay cola */
+    .cola-aside {
+      transition: width 250ms ease-out;
+    }
+    @keyframes pulse-ring-notif {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+      40% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0); }
+      80% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    }
+    .cola-plegada-pulse {
+      animation: pulse-ring-notif 4s ease-out infinite;
+      border-radius: 0.5rem;
+    }
   `],
   template: `
     <div class="space-y-4">
@@ -86,14 +100,45 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
       </div>
 
       <div class="flex flex-col lg:flex-row gap-4">
-        <!-- Panel en_cola -->
-        <aside class="w-full lg:w-72 lg:shrink-0 card p-4 space-y-3 h-fit lg:sticky lg:top-4">
-          <div class="flex items-center justify-between">
-            <h3 class="font-semibold text-slate-700">En cola</h3>
-            <button class="text-xs text-brand-600 hover:underline" (click)="toggleCreate()">
-              {{ showCreate() ? 'Cancelar' : '+ Nueva' }}
+        <!-- Panel en_cola: plegable en lg+ -->
+        <aside class="cola-aside w-full lg:shrink-0 card h-fit lg:sticky lg:top-4 overflow-hidden"
+               [class.lg:w-72]="!colaPlegada()"
+               [class.lg:w-12]="colaPlegada()"
+               [class.cola-plegada-pulse]="colaPlegada() && enCola().length > 0"
+               [class.p-4]="!colaPlegada()"
+               [class.lg:p-2]="colaPlegada()">
+
+          @if (colaPlegada()) {
+            <!-- Vista colapsada: solo botón expandir + badge contador (lg+ unicamente) -->
+            <button
+              type="button"
+              class="hidden lg:flex flex-col items-center justify-center w-full gap-2 py-3 text-slate-600 hover:text-brand-600 transition relative"
+              (click)="toggleColaPlegada()"
+              [attr.title]="enCola().length + ' visitas en cola — click para expandir'">
+              <span class="text-lg leading-none">»</span>
+              @if (enCola().length > 0) {
+                <span class="absolute top-0 right-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                  {{ enCola().length }}
+                </span>
+              }
+              <span class="text-[10px] uppercase tracking-wide [writing-mode:vertical-rl] rotate-180 mt-1 text-slate-500">En cola</span>
             </button>
-          </div>
+          }
+
+          <div [class.hidden]="colaPlegada()" [class.lg:block]="!colaPlegada()" class="space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="font-semibold text-slate-700">En cola</h3>
+              <div class="flex items-center gap-2">
+                <button class="text-xs text-brand-600 hover:underline" (click)="toggleCreate()">
+                  {{ showCreate() ? 'Cancelar' : '+ Nueva' }}
+                </button>
+                <button
+                  type="button"
+                  class="hidden lg:inline-flex items-center justify-center w-6 h-6 rounded text-slate-500 hover:bg-slate-100 hover:text-slate-700 text-sm"
+                  (click)="toggleColaPlegada()"
+                  title="Plegar panel">«</button>
+              </div>
+            </div>
 
           @if (showCreate()) {
             <div class="space-y-2 p-3 rounded-md bg-slate-50 border border-slate-200">
@@ -173,6 +218,7 @@ const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visi
             } @empty {
               <div class="text-xs text-slate-400 text-center py-6">No hay visitas en cola.</div>
             }
+          </div>
           </div>
         </aside>
 
@@ -323,7 +369,68 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
   private router = inject(Router);
 
   @ViewChild('colaList', { static: false }) colaList?: ElementRef<HTMLDivElement>;
+  @ViewChild(FullCalendarComponent) fullCalendar?: FullCalendarComponent;
   private draggable?: Draggable;
+  private destroyRef = inject(DestroyRef);
+
+  // Viewport tracking en vivo: signal con width/height, actualizado por @HostListener('window:resize') con debounce.
+  // Se usa para que `options()` recalcule height/headerToolbar al cambiar el tamaño de la ventana.
+  viewportSize = signal<{ width: number; height: number }>(
+    typeof window !== 'undefined'
+      ? { width: window.innerWidth, height: window.innerHeight }
+      : { width: 1280, height: 800 },
+  );
+  private resizeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // 'mobile' < 640, 'tablet' 640-1023, 'desktop' >= 1024.
+  viewMode = computed<'mobile' | 'tablet' | 'desktop'>(() => {
+    const w = this.viewportSize().width;
+    if (w < 640) return 'mobile';
+    if (w < 1024) return 'tablet';
+    return 'desktop';
+  });
+
+  private static readonly COLA_PLEGADA_KEY = 'agenda.calendar.cola_plegada';
+  colaPlegada = signal<boolean>(this.readColaPlegadaInicial());
+
+  private readColaPlegadaInicial(): boolean {
+    if (typeof localStorage === 'undefined') return false;
+    try {
+      return localStorage.getItem(VisitasCalendarComponent.COLA_PLEGADA_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  toggleColaPlegada() {
+    const next = !this.colaPlegada();
+    this.colaPlegada.set(next);
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(VisitasCalendarComponent.COLA_PLEGADA_KEY, next ? '1' : '0');
+      } catch {
+        /* ignored: localStorage puede estar deshabilitado en modo privado */
+      }
+    }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize() {
+    if (this.resizeTimer) clearTimeout(this.resizeTimer);
+    this.resizeTimer = setTimeout(() => {
+      if (typeof window === 'undefined') return;
+      this.viewportSize.set({ width: window.innerWidth, height: window.innerHeight });
+    }, 100);
+  }
+
+  constructor() {
+    // Cuando se pliega/expande el sidebar, esperar a que termine la transición CSS (250ms)
+    // y forzar a FullCalendar a recalcular el layout para aprovechar el ancho ganado.
+    effect(() => {
+      this.colaPlegada(); // tracker
+      setTimeout(() => this.fullCalendar?.getApi()?.updateSize(), 270);
+    });
+  }
 
   items = signal<Visita[]>([]);
   tecnicos = signal<Tecnico[]>([]);
@@ -394,10 +501,32 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
   colorDeEstado = colorDeEstado;
 
   options = computed<CalendarOptions>(() => {
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    const mode = this.viewMode();
+    const vh = this.viewportSize().height;
+
+    // Reservas verticales aproximadas (KPIs + filtros + paddings + footer).
+    // En mobile devolvemos 'auto' y dejamos que la lista crezca; en tablet/desktop
+    // calculamos contra el viewport real para que el calendario llene el espacio.
+    const height: number | 'auto' =
+      mode === 'mobile' ? 'auto'
+      : mode === 'tablet' ? Math.max(500, vh - 320)
+      : Math.max(560, vh - 200);
+
+    const initialView =
+      mode === 'mobile' ? 'listWeek'
+      : mode === 'tablet' ? 'timeGridWeek'
+      : 'timeGridWeek';
+
+    const headerToolbar =
+      mode === 'mobile'
+        ? { left: 'prev,next', center: 'title', right: 'listWeek,timeGridDay' }
+        : mode === 'tablet'
+          ? { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listWeek' }
+          : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' };
+
     return ({
     plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
-    initialView: isMobile ? 'listWeek' : 'timeGridWeek',
+    initialView,
     locale: 'es',
     firstDay: 1,
     nowIndicator: true,
@@ -410,12 +539,12 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
     scrollTime: '07:00:00',
     selectable: true,
     selectMirror: true,
-    headerToolbar: isMobile
-      ? { left: 'prev,next', center: 'title', right: 'listWeek,timeGridDay' }
-      : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' },
+    expandRows: true,
+    dayMaxEvents: true,
+    headerToolbar,
     buttonText: { today: 'Hoy', month: 'Mes', week: 'Semana', day: 'Día', list: 'Lista' },
-    titleFormat: isMobile ? { month: 'short', day: 'numeric' } : { month: 'long', year: 'numeric' },
-    height: isMobile ? 520 : 680,
+    titleFormat: mode === 'mobile' ? { month: 'short', day: 'numeric' } : { month: 'long', year: 'numeric' },
+    height,
     events: this.toEvents(this.filtered()),
     eventClick: (arg) => this.editandoId.set(arg.event.id),
     eventDrop: (arg) => this.onEventChange(arg),
