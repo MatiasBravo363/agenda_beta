@@ -3,6 +3,36 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.15] — 2026-04-27
+
+### Security
+- **Broken Access Control fix (OWASP A01:2021 — Missing Function Level Access Control)**. Las rutas `/dashboard`, `/visitas/*`, `/actividades`, `/tecnicos`, `/historial` y `/configuracion` no tenían `permisoGuard` — el sidebar las ocultaba con `*appSiTiene` pero un usuario podía acceder tipeando la URL directo. Agregado `canActivate: [permisoGuard('X.ver')]` a las 6 rutas. ([agenda-beta/src/app/app.routes.ts](agenda-beta/src/app/app.routes.ts))
+- Nueva ruta pública `/sin-permisos` ([agenda-beta/src/app/features/sin-permisos/sin-permisos.component.ts](agenda-beta/src/app/features/sin-permisos/sin-permisos.component.ts)) destino del `permisoGuard` cuando rechaza acceso. Antes redirigía a `/visitas` que ahora también está gateado, generando potencial loop de redirect.
+- Spec de regresión [agenda-beta/src/app/app.routes.spec.ts](agenda-beta/src/app/app.routes.spec.ts) que verifica que cada ruta sensible tenga `canActivate`. Si alguien agrega una ruta nueva sin guard, el test rompe.
+- Comentario al tope de `app.routes.ts` documentando la convención: ítem `*appSiTiene='X.ver'` ↔ ruta con `permisoGuard('X.ver')` con el mismo código.
+
+### Added
+- **KPI cards clickeables como filtro** en `/visitas/lista` y `/visitas/calendario`. Click en card → filtra por ese estado. Click otra vez → limpia. Card activa muestra ring del color del estado + badge "Filtrando". Input nuevo `active` en [SpotlightCardComponent](agenda-beta/src/app/shared/components/spotlight-card.component.ts).
+
+### Changed
+- **Orden descendente** de los grupos por día en `/visitas/lista` (más reciente arriba). Antes era ascendente. Cambio en [visitas-grupos.util.ts](agenda-beta/src/app/features/visitas/visitas-grupos.util.ts) + spec actualizado.
+
+### Fixed
+- **Paginador siempre visible** en `/visitas/lista`. Antes estaba detrás del feature flag `ui_paginacion_visible` y si el flag estaba off, el usuario solo veía 50 visitas sin posibilidad de navegar. Quitado el `*appFeature`.
+- **Versión en sidebar**: bump a 1.0.15 (lee de `package.json`). En 1.0.14 podía verse stale por orden de releases.
+
+## [1.0.14] — 2026-04-27
+
+### Added
+- Calendario responsive con `viewportSize` signal + `@HostListener('window:resize')` debounceado. Tres modos: mobile/tablet/desktop con altura dinámica que llena el viewport.
+- Sidebar "En cola" plegable con persistencia en localStorage. Animación pulse cuando está plegado y hay cola.
+- Dashboard: 6 charts nuevos (line actividades/día, donut estados, barras % técnicos con destaque Bermann, funnel snapshot, tasa de fallo por actividad, heatmap día×hora).
+- KPIs nuevos en dashboard: tasa de cumplimiento, en cola, reagendadas.
+- `charts.util.ts` con helpers compartidos para charts.
+
+### Fixed
+- Spread roto de `baseOptions` rompía donut/funnel/barras/heatmap (charts vacíos). Reescritos sin spread, con tooltip/legend/grid inline. Barras horizontales ahora usan data primitiva + `itemStyle.color` callback.
+
 ## [Unreleased] — 1.0.13
 
 Cierre de P1 + P2 del informe de production-readiness ([SOP/2026-04-25-production-readiness-assessment.md](SOP/2026-04-25-production-readiness-assessment.md)).

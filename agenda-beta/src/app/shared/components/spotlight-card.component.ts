@@ -6,8 +6,19 @@ type Tone = 'indigo' | 'amber' | 'rose' | 'green';
   selector: 'app-spotlight-card',
   standalone: true,
   template: `
-    <div class="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 transition-shadow hover:shadow-lg"
+    <div class="relative overflow-hidden rounded-xl border bg-white dark:bg-slate-900 p-5 transition-all hover:shadow-lg"
+         [class.border-slate-200]="!active"
+         [class.dark:border-slate-800]="!active"
+         [class.shadow-md]="active"
+         [style.border-color]="active ? accentColor() : null"
+         [style.border-width]="active ? '2px' : '1px'"
+         [style.padding]="active ? '19px' : '20px'"
          [style]="bgStyle()">
+      @if (active) {
+        <span class="absolute top-2 right-2 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded"
+              [style.background]="accentColor()"
+              [style.color]="'#fff'">Filtrando</span>
+      }
       <div class="relative z-10">
         <div class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ title }}</div>
         <div class="mt-2 text-4xl font-bold" [style.color]="accentColor()">{{ count }}</div>
@@ -27,6 +38,7 @@ export class SpotlightCardComponent {
   @Input() hint = '';
   @Input() tone: Tone = 'indigo';
   @Input() customColor?: string;
+  @Input() active = false;
 
   private host = inject(ElementRef<HTMLElement>);
   private mx = 50;

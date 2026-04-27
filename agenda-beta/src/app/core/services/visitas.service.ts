@@ -80,6 +80,28 @@ function flattenRels(row: unknown): Visita {
   return { ...rest, tecnicos, actividades } as Visita;
 }
 
+/**
+ * Si recibe una fecha sin hora ('YYYY-MM-DD') la expande a inicio de día
+ * ('YYYY-MM-DD 00:00:00'). Si ya viene con hora (T en el medio), la deja como está.
+ * Postgres interpreta 'YYYY-MM-DD' como medianoche, así que para `gte` ya
+ * funciona, pero esto deja explícito el contrato.
+ */
+function expandirInicioDia(fecha: string): string {
+  if (fecha.includes('T') || fecha.includes(' ')) return fecha;
+  return `${fecha} 00:00:00`;
+}
+
+/**
+ * Si recibe una fecha sin hora ('YYYY-MM-DD') la expande a fin de día
+ * ('YYYY-MM-DD 23:59:59.999') para que `lte('fecha_inicio', hasta)` incluya
+ * los registros del día completo. Sin esto, hasta=2026-04-26 excluye todo
+ * lo posterior a 2026-04-26 00:00:00.
+ */
+function expandirFinDia(fecha: string): string {
+  if (fecha.includes('T') || fecha.includes(' ')) return fecha;
+  return `${fecha} 23:59:59.999`;
+}
+
 export interface VisitasListOpts {
   limit?: number;
   offset?: number;
@@ -140,8 +162,8 @@ export class VisitasService {
     } else if (opts.tecnicoId) {
       q = q.eq('tecnico_id', opts.tecnicoId);
     }
-    if (opts.desde) q = q.gte('fecha_inicio', opts.desde);
-    if (opts.hasta) q = q.lte('fecha_inicio', opts.hasta);
+    if (opts.desde) q = q.gte('fecha_inicio', expandirInicioDia(opts.desde));
+    if (opts.hasta) q = q.lte('fecha_inicio', expandirFinDia(opts.hasta));
 
     const { data, error, count } = await q;
     if (error) throw error;
