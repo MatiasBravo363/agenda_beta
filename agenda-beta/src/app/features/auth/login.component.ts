@@ -57,7 +57,7 @@ export class LoginComponent {
     try {
       await this.auth.signIn(this.email, this.password);
       this.router.navigate(['/visitas']);
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.error.set(mensajeAuthGenerico(e));
     } finally {
       this.loading.set(false);

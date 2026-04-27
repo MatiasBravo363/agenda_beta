@@ -509,8 +509,8 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
       this.showCreate.set(false);
       await this.reloadAll();
       this.flash('ok', 'Visita creada en cola.');
-    } catch (e: any) {
-      this.flash('err', e?.message ?? 'No se pudo crear.');
+    } catch (e: unknown) {
+      this.flash('err', (e as { message?: string })?.message ?? 'No se pudo crear.');
     } finally {
       this.creating.set(false);
     }
@@ -530,8 +530,8 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
       await this.svc.remove(a.id);
       await this.reloadAll();
       this.flash('ok', 'Visita eliminada.');
-    } catch (e: any) {
-      this.flash('err', e?.message ?? 'No se pudo eliminar.');
+    } catch (e: unknown) {
+      this.flash('err', (e as { message?: string })?.message ?? 'No se pudo eliminar.');
     }
   }
 
@@ -544,8 +544,8 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
       await this.reloadAll();
       this.multPending.set(null);
       this.flash('ok', n > 1 ? `Multiplicado ×${n}.` : 'Multiplicador removido.');
-    } catch (e: any) {
-      this.flash('err', e?.message ?? 'No se pudo actualizar.');
+    } catch (e: unknown) {
+      this.flash('err', (e as { message?: string })?.message ?? 'No se pudo actualizar.');
     }
   }
 
@@ -616,8 +616,8 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
       await this.reloadAll();
       this.dropPending.set(null);
       this.flash('ok', 'Visita agendada.');
-    } catch (e: any) {
-      this.flash('err', e?.message ?? 'No se pudo agendar.');
+    } catch (e: unknown) {
+      this.flash('err', (e as { message?: string })?.message ?? 'No se pudo agendar.');
     } finally {
       this.confirming.set(false);
     }
@@ -637,9 +637,9 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
       await this.svc.update(id, { fecha_inicio: start, fecha_fin: end });
       this.items.set(this.items().map((a) => (a.id === id ? { ...a, fecha_inicio: start, fecha_fin: end } : a)));
       this.flash('ok', 'Visita reubicada.');
-    } catch (e: any) {
+    } catch (e: unknown) {
       arg.revert();
-      this.flash('err', e?.message ?? 'No se pudo actualizar.');
+      this.flash('err', (e as { message?: string })?.message ?? 'No se pudo actualizar.');
     }
   }
 

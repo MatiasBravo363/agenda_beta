@@ -6,13 +6,14 @@ import { environment } from '../../../environments/environment';
  * nombres de columnas o constraints internos.
  * En dev se deja el error crudo en consola para debug.
  */
-export function mensajeGenericoDeError(e: any, fallback = 'No se pudo completar la acción.'): string {
+export function mensajeGenericoDeError(e: unknown, fallback = 'No se pudo completar la acción.'): string {
   if (!environment.production) {
     // eslint-disable-next-line no-console
     console.error('[service]', e);
   }
-  const msg = String(e?.message ?? '').toLowerCase();
-  const code = String(e?.code ?? '');
+  const eo = (e ?? {}) as { message?: string; code?: string };
+  const msg = String(eo.message ?? '').toLowerCase();
+  const code = String(eo.code ?? '');
   if (msg.includes('row-level security') || code === '42501') {
     return 'No tienes permisos para esta acción.';
   }

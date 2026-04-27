@@ -1,17 +1,21 @@
-import { Component, EventEmitter, Input, OnInit, Output, signal } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnInit, Output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Visita } from '../../core/models';
+import { FocusTrapDirective } from '../directives/focus-trap.directive';
 
 @Component({
   selector: 'app-visita-clonar-modal',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, FocusTrapDirective],
   template: `
     <div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4"
-         (click)="onBackdrop()">
-      <div class="card w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
+         (click)="onBackdrop()"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="clonar-modal-title">
+      <div appFocusTrap class="card w-full max-w-md p-6 space-y-4" (click)="$event.stopPropagation()">
         <div>
-          <h3 class="font-semibold text-slate-800 dark:text-slate-100">Clonar visita</h3>
+          <h3 id="clonar-modal-title" class="font-semibold text-slate-800 dark:text-slate-100">Clonar visita</h3>
           <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Cliente: <strong>{{ visita.nombre_cliente }}</strong>
           </p>

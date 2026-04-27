@@ -10,29 +10,15 @@ import { SpotlightCardComponent } from '../../shared/components/spotlight-card.c
 import { VisitaFormComponent } from './visita-form.component';
 import { VisitaClonarModalComponent } from '../../shared/components/visita-clonar-modal.component';
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
+import { FeatureDirective } from '../../shared/directives/feature.directive';
+import { SkeletonComponent } from '../../shared/components/skeleton.component';
 import { mensajeGenericoDeError } from '../../core/services/service-error.util';
+import { agruparPorDia, diaKey, labelDia, GrupoDia } from './visitas-grupos.util';
 
-interface GrupoDia {
-  key: string;       // 'YYYY-MM-DD' o '__sin__'
-  label: string;     // 'Lunes 21 de abril de 2026' o 'Sin fecha'
-  items: Visita[];
-}
-
+// diaKey, labelDia, GrupoDia y agruparPorDia se extrajeron a visitas-grupos.util.ts
+// para que sean testeables y reutilizables (Fase 5 del plan 1.0.13).
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-const DIAS_LARGOS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-
-function diaKey(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  const pad = (n: number) => `${n}`.padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-function labelDia(key: string): string {
-  const [y, m, d] = key.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return `${DIAS_LARGOS[date.getDay()]} ${d} de ${MESES[m - 1]} de ${y}`;
-}
 
 type SortKey = 'numero' | 'creador' | 'creado' | 'horario' | 'estado' | 'cliente' | 'tipo' | 'ubicacion';
 type SortDir = 'asc' | 'desc';
@@ -51,7 +37,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
 @Component({
   selector: 'app-visitas-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, VisitaFormComponent, VisitaClonarModalComponent, SiTieneDirective],
+  imports: [FormsModule, RouterLink, DatePipe, SpotlightCardComponent, VisitaFormComponent, VisitaClonarModalComponent, SiTieneDirective, FeatureDirective, SkeletonComponent],
   template: `
     <div class="space-y-4">
       @if (feedback(); as f) {
@@ -116,8 +102,58 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
         <div class="flex flex-wrap items-center gap-3">
           <button class="btn-primary" (click)="aplicarFiltros()">Buscar</button>
           <button class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
-          <span class="text-sm text-slate-500 ml-auto">{{ filtradas().length }} resultado(s)</span>
+          <span class="text-sm text-slate-500 ml-auto">
+            {{ filtradas().length }} mostrado(s)
+            @if (total() !== null) { · {{ total() }} en total }
+          </span>
           <button *appSiTiene="'visitas.exportar'" class="btn-secondary" (click)="exportXlsx()">Exportar a Excel</button>
+        </div>
+      </div>
+
+      <!-- Footer de paginación (controlado por feature flag) -->
+      <div *appFeature="'ui_paginacion_visible'" class="card p-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-slate-500 dark:text-slate-400">Mostrar</span>
+          <select
+            class="input py-1 px-2 w-auto"
+            [ngModel]="tamPagina()"
+            (ngModelChange)="cambiarTamPagina(+$event)"
+            [disabled]="cargando()"
+          >
+            @for (n of tamPaginaOpciones; track n) {
+              <option [ngValue]="n">{{ n }}</option>
+            }
+          </select>
+          <span class="text-slate-500 dark:text-slate-400">por página</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            class="btn-secondary py-1 px-3"
+            [disabled]="pagina() === 0 || cargando()"
+            (click)="irAPagina(0)"
+            aria-label="Primera página"
+          >«</button>
+          <button
+            class="btn-secondary py-1 px-3"
+            [disabled]="pagina() === 0 || cargando()"
+            (click)="irAPagina(pagina() - 1)"
+            aria-label="Página anterior"
+          >‹</button>
+          <span class="text-slate-700 dark:text-slate-300">
+            Página {{ pagina() + 1 }} de {{ totalPaginas() }}
+          </span>
+          <button
+            class="btn-secondary py-1 px-3"
+            [disabled]="pagina() >= totalPaginas() - 1 || cargando()"
+            (click)="irAPagina(pagina() + 1)"
+            aria-label="Página siguiente"
+          >›</button>
+          <button
+            class="btn-secondary py-1 px-3"
+            [disabled]="pagina() >= totalPaginas() - 1 || cargando()"
+            (click)="irAPagina(totalPaginas() - 1)"
+            aria-label="Última página"
+          >»</button>
         </div>
       </div>
 
@@ -187,7 +223,13 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
               </tr>
             </thead>
             <tbody>
-              @if (filtradas().length === 0) {
+              @if (cargando() && items().length === 0) {
+                @for (_ of [1,2,3,4,5,6,7,8]; track $index) {
+                  <tr class="border-t border-slate-100 dark:border-slate-800">
+                    <td colspan="10" class="px-4 py-3"><app-skeleton></app-skeleton></td>
+                  </tr>
+                }
+              } @else if (filtradas().length === 0) {
                 <tr><td colspan="10" class="px-4 py-10 text-center text-slate-400">Sin visitas</td></tr>
               }
               @for (g of gruposPorDia(); track g.key) {
@@ -278,6 +320,18 @@ export class VisitasListComponent implements OnInit {
 
   items = signal<Visita[]>([]);
   tecnicos = signal<Tecnico[]>([]);
+  total = signal<number | null>(null);
+  cargando = signal(false);
+
+  // Paginación server-side. Default 50; usuario puede cambiar.
+  pagina = signal(0);  // 0-indexed
+  tamPagina = signal(50);
+  tamPaginaOpciones = [25, 50, 100, 200];
+  totalPaginas = computed(() => {
+    const t = this.total();
+    if (t == null) return 1;
+    return Math.max(1, Math.ceil(t / this.tamPagina()));
+  });
 
   pendiente: FiltrosAplicados = { ...FILTROS_VACIOS };
   aplicados = signal<FiltrosAplicados>({ ...FILTROS_VACIOS });
@@ -359,25 +413,7 @@ export class VisitasListComponent implements OnInit {
     });
   });
 
-  gruposPorDia = computed<GrupoDia[]>(() => {
-    const map = new Map<string, Visita[]>();
-    for (const a of this.filtradas()) {
-      const k = diaKey(a.fecha_inicio) ?? '__sin__';
-      const arr = map.get(k) ?? [];
-      arr.push(a);
-      map.set(k, arr);
-    }
-    const keys = Array.from(map.keys()).sort((a, b) => {
-      if (a === '__sin__') return 1;
-      if (b === '__sin__') return -1;
-      return a < b ? -1 : a > b ? 1 : 0;
-    });
-    return keys.map((k) => ({
-      key: k,
-      label: k === '__sin__' ? 'Sin fecha' : labelDia(k),
-      items: map.get(k)!,
-    }));
-  });
+  gruposPorDia = computed<GrupoDia[]>(() => agruparPorDia(this.filtradas()));
 
   diasConVisitas = computed<Set<string>>(() => {
     const s = new Set<string>();
@@ -463,11 +499,17 @@ export class VisitasListComponent implements OnInit {
     return this.sortDir() === 'asc' ? '▲' : '▼';
   }
 
-  aplicarFiltros() { this.aplicados.set({ ...this.pendiente }); }
+  aplicarFiltros() {
+    this.aplicados.set({ ...this.pendiente });
+    this.pagina.set(0);
+    this.reload();
+  }
 
   limpiarFiltros() {
     this.pendiente = { ...FILTROS_VACIOS };
     this.aplicados.set({ ...FILTROS_VACIOS });
+    this.pagina.set(0);
+    this.reload();
   }
 
   async ngOnInit() {
@@ -491,7 +533,38 @@ export class VisitasListComponent implements OnInit {
     this.pendiente.desde = fmt(lunes);
     this.pendiente.hasta = fmt(domingo);
   }
-  async reload() { this.items.set(await this.svc.list()); }
+  async reload() {
+    this.cargando.set(true);
+    try {
+      const f = this.aplicados();
+      const { items, total } = await this.svc.listPaged({
+        limit: this.tamPagina(),
+        offset: this.pagina() * this.tamPagina(),
+        estado: f.estado || '',
+        cliente: f.cliente || '',
+        tecnicoId: f.tecnico || '',
+        desde: f.desde || '',
+        hasta: f.hasta || '',
+      });
+      this.items.set(items);
+      this.total.set(total);
+    } finally {
+      this.cargando.set(false);
+    }
+  }
+
+  irAPagina(p: number) {
+    const nueva = Math.max(0, Math.min(p, this.totalPaginas() - 1));
+    if (nueva === this.pagina()) return;
+    this.pagina.set(nueva);
+    this.reload();
+  }
+
+  cambiarTamPagina(n: number) {
+    this.tamPagina.set(n);
+    this.pagina.set(0);
+    this.reload();
+  }
   async loadTecnicos() { this.tecnicos.set(await this.techSvc.list()); }
 
   color(a: Visita) { return colorDeVisita(a, a.tecnico); }

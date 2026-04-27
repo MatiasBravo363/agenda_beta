@@ -249,7 +249,7 @@ export class UsersComponent implements OnInit {
       this.editing.set(null);
       await this.reload();
       this.flash('ok', 'Usuario actualizado.');
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.flash('err', mensajeGenericoDeError(e, 'No se pudo guardar.'));
     }
   }
@@ -261,7 +261,7 @@ export class UsersComponent implements OnInit {
     try {
       await this.svc.sendPasswordReset(email);
       this.flash('ok', `Link de reset enviado a ${email}.`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.flash('err', mensajeGenericoDeError(e, 'No se pudo enviar el reset.'));
     } finally {
       this.resetting.set(false);
@@ -272,7 +272,7 @@ export class UsersComponent implements OnInit {
     try {
       await this.svc.setActivo(u.id, !u.activo);
       await this.reload();
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.flash('err', mensajeGenericoDeError(e, 'No se pudo cambiar el estado.'));
     }
   }
@@ -294,7 +294,7 @@ export class UsersComponent implements OnInit {
       this.flash('ok', `Invitación enviada a ${v.email}.`);
       this.creating.set(null);
       await this.reload();
-    } catch (e: any) {
+    } catch (e: unknown) {
       this.flash('err', mensajeGenericoDeError(e, 'No se pudo enviar la invitación.'));
     } finally {
       this.sending.set(false);

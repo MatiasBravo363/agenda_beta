@@ -6,6 +6,7 @@ import {
   Input,
   Output,
   computed,
+  inject,
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -86,7 +87,7 @@ export class MultiSelectComponent {
   open = signal(false);
   filtro = '';
 
-  constructor(private host: ElementRef<HTMLElement>) {}
+  private host = inject(ElementRef<HTMLElement>);
 
   selectedOptions = computed(() => this.options.filter((o) => this.selected.includes(o.id)));
 

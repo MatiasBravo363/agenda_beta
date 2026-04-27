@@ -135,19 +135,30 @@ Antes de mergear a `main` (que dispara deploy a producción):
 
 ## 7. Sentry — gestión
 
-### Subir source maps de un release
+### Source maps automáticos (desde 1.0.13)
 
-Requisito: tener `SENTRY_AUTH_TOKEN` configurado (Settings → Account → Auth Tokens, scope `project:releases`).
+El upload se ejecuta automáticamente como `postbuild` cuando `SENTRY_AUTH_TOKEN` está seteado en el entorno (Vercel productivo, CI). Si la var no está, el script termina con exit 0 sin romper.
+
+**Setup inicial (una sola vez):**
+
+1. **Generar `SENTRY_AUTH_TOKEN`**: Sentry → Settings → Account → Auth Tokens → Create New Token con scope `project:releases` (recomendado también `project:read` y `org:read`). Copiar el token (solo se muestra una vez).
+2. **Configurar en Vercel**: Vercel Dashboard → proyecto agenda-beta → Settings → Environment Variables → agregar (scope Production):
+   - `SENTRY_AUTH_TOKEN` = el token generado
+   - `SENTRY_ORG` = `bermann`
+   - `SENTRY_PROJECT` = `agenda-beta`
+3. Próximo deploy productivo → el postbuild sube automáticamente los source maps a Sentry para `agenda-beta@<package.json.version>`.
+
+**Verificación:** después de un deploy productivo, ir a un issue en Sentry → el stack trace debe mostrar nombres legibles de archivos TS y líneas originales (no `t.bind` minificado).
+
+### Upload manual (si auto-upload falla o queremos hacerlo desde local)
 
 ```bash
 cd agenda-beta
-npm run build
-npx @sentry/cli releases new agenda-beta@<VERSION>
-npx @sentry/cli releases files agenda-beta@<VERSION> upload-sourcemaps dist/agenda-beta/browser
-npx @sentry/cli releases finalize agenda-beta@<VERSION>
+export SENTRY_AUTH_TOKEN=<token>
+export SENTRY_ORG=bermann
+export SENTRY_PROJECT=agenda-beta
+npm run build  # postbuild dispara el upload
 ```
-
-(Pendiente de automatizar vía hook de Vercel — TODO en P1.)
 
 ### Configurar alertas
 

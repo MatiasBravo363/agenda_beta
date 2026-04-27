@@ -49,7 +49,15 @@ export class AuthService {
   async signIn(email: string, password: string) {
     const { data, error } = await this.sb.client.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    if (data.user) await this.permisos.cargar(data.user.id);
+    if (data.user) {
+      await this.permisos.cargar(data.user.id);
+      Sentry.addBreadcrumb({
+        category: 'auth',
+        message: 'login',
+        level: 'info',
+        data: { user_id: data.user.id },
+      });
+    }
     return data;
   }
 
@@ -64,6 +72,11 @@ export class AuthService {
   }
 
   async signOut() {
+    Sentry.addBreadcrumb({
+      category: 'auth',
+      message: 'logout',
+      level: 'info',
+    });
     await this.sb.client.auth.signOut();
     this.permisos.limpiar();
   }

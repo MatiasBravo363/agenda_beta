@@ -118,7 +118,7 @@ export class MainLayoutComponent {
   toggle() {
     const next = !this.collapsed();
     this.collapsed.set(next);
-    try { localStorage.setItem('agenda_sidebar_collapsed', next ? '1' : '0'); } catch {}
+    try { localStorage.setItem('agenda_sidebar_collapsed', next ? '1' : '0'); } catch { /* ignored: private mode */ }
   }
 
   private readPref(): boolean {

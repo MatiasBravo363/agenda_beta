@@ -15,7 +15,7 @@ export class ThemeService {
   setDark(dark: boolean) {
     this.isDark.set(dark);
     this.apply(dark);
-    try { localStorage.setItem(STORAGE_KEY, dark ? 'dark' : 'light'); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, dark ? 'dark' : 'light'); } catch { /* ignored: private mode */ }
   }
 
   private apply(dark: boolean) {
