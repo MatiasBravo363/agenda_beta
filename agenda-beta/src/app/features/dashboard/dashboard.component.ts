@@ -6,9 +6,11 @@ import type { EChartsOption } from 'echarts';
 import { VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { ActividadesService } from '../../core/services/actividades.service';
-import { Actividad, Visita, Tecnico } from '../../core/models';
+import { Actividad, EstadoVisita, Visita, Tecnico } from '../../core/models';
 import { ESTADO_LABEL, ESTADOS, colorDeEstado } from '../../core/utils/estado.util';
+import { ThemeService } from '../../core/theme/theme.service';
 import { PageHeaderComponent } from '../../shared/components/page-header.component';
+import { baseOptions, gradientColorByRate, paletteColor, TIPO_PALETTE } from './charts.util';
 
 interface TipoSlice {
   nombre: string;
@@ -17,7 +19,10 @@ interface TipoSlice {
   color: string;
 }
 
-const TIPO_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#a855f7', '#ec4899', '#14b8a6'];
+const DIAS_LABEL = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const HORAS_LABEL = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}h`);
+const COLOR_BERMANN = '#3b5bdb';
+const COLOR_EXTERNO = '#94a3b8';
 
 @Component({
   selector: 'app-dashboard',
@@ -26,7 +31,7 @@ const TIPO_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#a
   template: `
     <app-page-header title="Dashboard" subtitle="Vista global de visitas con filtros y gráficos."></app-page-header>
 
-    <div class="p-8 space-y-6">
+    <div class="p-4 md:p-8 space-y-6">
       <!-- Filtros -->
       <div class="card p-4">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -67,52 +72,109 @@ const TIPO_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#a
         </div>
       </div>
 
-      <!-- Global card -->
-      <div class="card p-6 space-y-4">
-        <div class="flex items-baseline justify-between">
-          <div>
-            <div class="text-xs uppercase tracking-wider text-slate-500">Global</div>
-            <div class="text-4xl font-bold mt-1">{{ total() }}</div>
-            <div class="text-xs text-slate-500 mt-1">Visitaes en el rango</div>
-          </div>
-          <div class="text-right">
-            <div class="text-sm text-slate-500">vs periodo anterior</div>
-            <div class="text-2xl font-semibold" [style.color]="diffColor()">
-              {{ diffLabel() }}
-            </div>
-            <div class="text-xs text-slate-400">({{ totalAnterior() }} previo)</div>
+      <!-- KPIs row: 4 cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- Total + diff -->
+        <div class="card p-4">
+          <div class="text-xs uppercase tracking-wider text-slate-500">Total visitas</div>
+          <div class="text-3xl font-bold mt-1">{{ total() }}</div>
+          <div class="text-xs mt-2" [style.color]="diffColor()">
+            {{ diffLabel() }} <span class="text-slate-400">({{ totalAnterior() }} prev)</span>
           </div>
         </div>
-
-        <div>
-          <div class="text-xs text-slate-500 mb-2">Distribución por actividad (excluye En cola)</div>
-          @if (distribTipos().length > 0) {
-            <div class="flex h-4 rounded-md overflow-hidden border border-slate-200">
-              @for (s of distribTipos(); track s.nombre) {
-                <div [style.flex]="'0 0 ' + (s.pct < 2 ? 2 : s.pct) + '%'"
-                     [style.background]="s.color"
-                     [title]="s.nombre + ' · ' + s.count + ' (' + s.pct.toFixed(1) + '%)'"></div>
-              }
-            </div>
-            <div class="flex flex-wrap gap-3 mt-3 text-xs">
-              @for (s of distribTipos(); track s.nombre) {
-                <div class="flex items-center gap-1.5">
-                  <span class="inline-block w-3 h-3 rounded-sm" [style.background]="s.color"></span>
-                  <span class="text-slate-700">{{ s.nombre }}</span>
-                  <span class="text-slate-500">{{ s.pct.toFixed(1) }}%</span>
-                </div>
-              }
-            </div>
-          } @else {
-            <div class="text-xs text-slate-400">Sin datos suficientes.</div>
-          }
+        <!-- Tasa cumplimiento -->
+        <div class="card p-4">
+          <div class="text-xs uppercase tracking-wider text-slate-500">Cumplimiento</div>
+          <div class="text-3xl font-bold mt-1">{{ tasaCumplimientoLabel() }}</div>
+          <div class="text-xs text-slate-400 mt-2">{{ completadas() }}/{{ completadas() + falladas() }} (compl/total)</div>
+        </div>
+        <!-- En cola -->
+        <div class="card p-4">
+          <div class="text-xs uppercase tracking-wider text-slate-500">En cola</div>
+          <div class="text-3xl font-bold mt-1" [class.text-red-600]="enColaCount() > 10">
+            {{ enColaCount() }}
+          </div>
+          <div class="text-xs text-slate-400 mt-2">Pendientes de agendar</div>
+        </div>
+        <!-- Reagendadas -->
+        <div class="card p-4">
+          <div class="text-xs uppercase tracking-wider text-slate-500">Reagendadas</div>
+          <div class="text-3xl font-bold mt-1">{{ reagendadasCount() }}</div>
+          <div class="text-xs text-slate-400 mt-2">Clones por fallo (parent_id)</div>
         </div>
       </div>
 
-      <!-- Gráfico líneas -->
+      <!-- Distribución actividad: barra horizontal segmentada (existente) -->
       <div class="card p-4">
-        <div class="text-sm font-semibold text-slate-700 mb-2">Visitaes por fecha (por estado)</div>
-        <div echarts [options]="chartOptions()" class="w-full" style="height: 360px"></div>
+        <div class="text-xs text-slate-500 mb-2">Distribución por actividad (excluye En cola)</div>
+        @if (distribTipos().length > 0) {
+          <div class="flex h-4 rounded-md overflow-hidden border border-slate-200">
+            @for (s of distribTipos(); track s.nombre) {
+              <div [style.flex]="'0 0 ' + (s.pct < 2 ? 2 : s.pct) + '%'"
+                   [style.background]="s.color"
+                   [title]="s.nombre + ' · ' + s.count + ' (' + s.pct.toFixed(1) + '%)'"></div>
+            }
+          </div>
+          <div class="flex flex-wrap gap-3 mt-3 text-xs">
+            @for (s of distribTipos(); track s.nombre) {
+              <div class="flex items-center gap-1.5">
+                <span class="inline-block w-3 h-3 rounded-sm" [style.background]="s.color"></span>
+                <span class="text-slate-700 dark:text-slate-300">{{ s.nombre }}</span>
+                <span class="text-slate-500">{{ s.pct.toFixed(1) }}%</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="text-xs text-slate-400">Sin datos suficientes.</div>
+        }
+      </div>
+
+      <!-- Grid principal: line + donut -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="card p-4 lg:col-span-2">
+          <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Actividades agendadas por día</div>
+          <div echarts [options]="chartActividadesPorDia()" class="w-full" style="height: 360px"></div>
+        </div>
+        <div class="card p-4">
+          <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Distribución por estado</div>
+          <div echarts [options]="chartDonutEstados()" class="w-full" style="height: 360px"></div>
+        </div>
+      </div>
+
+      <!-- Grid secundaria: barras técnico + funnel -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="card p-4">
+          <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
+            Distribución por técnico
+            <span class="text-xs font-normal text-slate-500 ml-1">(Bermann en azul)</span>
+          </div>
+          <div echarts [options]="chartBarrasTecnicos()" class="w-full" [style.height.px]="alturaBarrasTecnicos()"></div>
+        </div>
+        <div class="card p-4">
+          <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
+            Funnel de estados
+            <span class="text-xs font-normal text-slate-500 ml-1">(snapshot actual, no cumulativo)</span>
+          </div>
+          <div echarts [options]="chartFunnel()" class="w-full" style="height: 360px"></div>
+        </div>
+      </div>
+
+      <!-- Heatmap día×hora -->
+      <div class="card p-4">
+        <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
+          Heatmap día × hora
+          <span class="text-xs font-normal text-slate-500 ml-1">(solo visitas con fecha)</span>
+        </div>
+        <div echarts [options]="chartHeatmap()" class="w-full" style="height: 320px"></div>
+      </div>
+
+      <!-- Tasa de fallo por actividad -->
+      <div class="card p-4">
+        <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
+          Tasa de fallo por actividad
+          <span class="text-xs font-normal text-slate-500 ml-1">(actividades con &lt;3 visitas filtradas)</span>
+        </div>
+        <div echarts [options]="chartFallosPorActividad()" class="w-full" [style.height.px]="alturaFallos()"></div>
       </div>
     </div>
   `,
@@ -121,6 +183,7 @@ export class DashboardComponent implements OnInit {
   private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
   private typeSvc = inject(ActividadesService);
+  private theme = inject(ThemeService);
 
   items = signal<Visita[]>([]);
   tecnicos = signal<Tecnico[]>([]);
@@ -131,6 +194,10 @@ export class DashboardComponent implements OnInit {
   fTecnico = signal('');
   fCliente = signal('');
   fTipo = signal('');
+
+  ESTADO_LABEL = ESTADO_LABEL;
+  estados = ESTADOS;
+  colorDeEstado = colorDeEstado;
 
   async ngOnInit() {
     this.setRangoMesActual();
@@ -226,6 +293,41 @@ export class DashboardComponent implements OnInit {
     return '#64748b';
   });
 
+  // --- KPIs nuevos ---
+
+  completadas = computed(() => this.filtered().filter((v) => v.estado === 'completada').length);
+  falladas = computed(() => this.filtered().filter((v) => v.estado === 'visita_fallida').length);
+
+  tasaCumplimiento = computed(() => {
+    const c = this.completadas();
+    const f = this.falladas();
+    if (c + f === 0) return null;
+    return (c / (c + f)) * 100;
+  });
+
+  tasaCumplimientoLabel = computed(() => {
+    const t = this.tasaCumplimiento();
+    if (t === null) return '—';
+    return `${t.toFixed(1)}%`;
+  });
+
+  // En cola se cuenta sobre items completos (sin filtro de fecha) porque
+  // las visitas en cola por definición no tienen fecha_inicio.
+  enColaCount = computed(() => {
+    const tec = this.fTecnico(); const cli = this.fCliente(); const tp = this.fTipo();
+    return this.items().filter((a) => {
+      if (a.estado !== 'en_cola') return false;
+      if (tec && a.tecnico_id !== tec) return false;
+      if (cli && a.nombre_cliente !== cli) return false;
+      if (tp && a.actividad_id !== tp) return false;
+      return true;
+    }).reduce((acc, a) => acc + (a.cantidad_pendiente ?? 1), 0);
+  });
+
+  reagendadasCount = computed(() => this.filtered().filter((v) => v.parent_visita_id != null).length);
+
+  // --- Distribución por actividad (existente) ---
+
   distribTipos = computed<TipoSlice[]>(() => {
     const list = this.filtered().filter((a) => a.estado !== 'en_cola');
     const total = list.length;
@@ -243,7 +345,9 @@ export class DashboardComponent implements OnInit {
       }));
   });
 
-  chartOptions = computed<EChartsOption>(() => {
+  // --- Helpers de fechas para charts ---
+
+  private xDays = computed<string[]>(() => {
     const list = this.filtered().filter((a) => a.fecha_inicio);
     const desde = this.fDesde() ? new Date(this.fDesde() + 'T00:00:00') : null;
     const hasta = this.fHasta() ? new Date(this.fHasta() + 'T00:00:00') : null;
@@ -251,44 +355,373 @@ export class DashboardComponent implements OnInit {
       const p = (n: number) => `${n}`.padStart(2, '0');
       return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
     };
-
-    let xDays: string[];
     if (desde && hasta) {
-      xDays = [];
+      const out: string[] = [];
       const cur = new Date(desde);
       while (cur.getTime() <= hasta.getTime()) {
-        xDays.push(fmt(cur));
+        out.push(fmt(cur));
         cur.setDate(cur.getDate() + 1);
       }
-    } else {
-      const dias = new Set<string>();
-      list.forEach((a) => dias.add(a.fecha_inicio!.slice(0, 10)));
-      xDays = Array.from(dias).sort();
+      return out;
+    }
+    const dias = new Set<string>();
+    list.forEach((a) => dias.add(a.fecha_inicio!.slice(0, 10)));
+    return Array.from(dias).sort();
+  });
+
+  // --- B.1: Line chart de actividades agendadas por día ---
+
+  chartActividadesPorDia = computed<EChartsOption>(() => {
+    const dark = this.theme.isDark();
+    const list = this.filtered().filter((a) => a.fecha_inicio);
+    const days = this.xDays();
+
+    // Agrupar: por cada visita, por cada actividad asociada (multi-asignación), sumar 1 al (día, actividad).
+    const counts = new Map<string, Map<string, number>>(); // actividad -> día -> count
+    for (const v of list) {
+      const dia = v.fecha_inicio!.slice(0, 10);
+      const acts = v.actividades && v.actividades.length > 0
+        ? v.actividades.map((a) => a.nombre)
+        : [v.actividad?.nombre ?? 'Sin actividad'];
+      for (const nombre of acts) {
+        if (!counts.has(nombre)) counts.set(nombre, new Map());
+        const inner = counts.get(nombre)!;
+        inner.set(dia, (inner.get(dia) ?? 0) + 1);
+      }
     }
 
-    const estadosGraficables = ESTADOS.filter((e) => e !== 'en_cola');
-    const series = estadosGraficables.map((e) => ({
-      name: ESTADO_LABEL[e],
-      type: 'line' as const,
-      smooth: true,
-      itemStyle: { color: colorDeEstado(e) },
-      lineStyle: { color: colorDeEstado(e) },
-      data: xDays.map(
-        (d) => list.filter((a) => a.estado === e && a.fecha_inicio!.slice(0, 10) === d).length
-      ),
-    }));
+    // Si hay >8 actividades, agregar las top 7 + "Otras"
+    const totales = Array.from(counts.entries())
+      .map(([nombre, m]) => ({ nombre, total: Array.from(m.values()).reduce((a, b) => a + b, 0) }))
+      .sort((a, b) => b.total - a.total);
+
+    let actividadesFinales: { nombre: string; serie: number[] }[];
+    if (totales.length > 8) {
+      const top = totales.slice(0, 7);
+      const restoNombres = new Set(totales.slice(7).map((x) => x.nombre));
+      const otras: number[] = days.map(() => 0);
+      for (const nombre of restoNombres) {
+        const m = counts.get(nombre)!;
+        days.forEach((d, i) => { otras[i] += m.get(d) ?? 0; });
+      }
+      actividadesFinales = top.map((t) => ({
+        nombre: t.nombre,
+        serie: days.map((d) => counts.get(t.nombre)!.get(d) ?? 0),
+      }));
+      actividadesFinales.push({ nombre: 'Otras', serie: otras });
+    } else {
+      actividadesFinales = totales.map((t) => ({
+        nombre: t.nombre,
+        serie: days.map((d) => counts.get(t.nombre)!.get(d) ?? 0),
+      }));
+    }
 
     return {
-      tooltip: { trigger: 'axis' },
-      legend: { data: estadosGraficables.map((e) => ESTADO_LABEL[e]), bottom: 0 },
-      grid: { left: 40, right: 20, top: 20, bottom: 50 },
-      xAxis: { type: 'category', data: xDays, boundaryGap: false },
+      ...baseOptions(dark),
+      tooltip: { ...(baseOptions(dark).tooltip as object), trigger: 'axis' },
+      legend: {
+        ...(baseOptions(dark).legend as object),
+        data: actividadesFinales.map((a) => a.nombre),
+        bottom: 0,
+        type: 'scroll',
+      },
+      grid: { left: 40, right: 20, top: 20, bottom: 50, containLabel: true },
+      xAxis: { type: 'category', data: days, boundaryGap: false },
       yAxis: { type: 'value', minInterval: 1 },
-      series,
+      series: actividadesFinales.map((a, i) => ({
+        name: a.nombre,
+        type: 'line' as const,
+        smooth: true,
+        connectNulls: false,
+        itemStyle: { color: paletteColor(i) },
+        lineStyle: { color: paletteColor(i) },
+        data: a.serie,
+      })),
     };
   });
 
-  ESTADO_LABEL = ESTADO_LABEL;
-  estados = ESTADOS;
-  colorDeEstado = colorDeEstado;
+  // --- B.2: Donut de distribución por estado ---
+
+  chartDonutEstados = computed<EChartsOption>(() => {
+    const dark = this.theme.isDark();
+    const list = this.filtered();
+    const counts = new Map<EstadoVisita, number>();
+    list.forEach((v) => counts.set(v.estado, (counts.get(v.estado) ?? 0) + 1));
+
+    const data = ESTADOS
+      .filter((e) => (counts.get(e) ?? 0) > 0)
+      .map((e) => ({
+        name: ESTADO_LABEL[e],
+        value: counts.get(e) ?? 0,
+        itemStyle: { color: colorDeEstado(e) },
+      }));
+
+    const totalText = `${list.length}\nvisitas`;
+
+    return {
+      ...baseOptions(dark),
+      tooltip: { ...(baseOptions(dark).tooltip as object), trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+      legend: { ...(baseOptions(dark).legend as object), bottom: 0, type: 'scroll' },
+      series: [{
+        type: 'pie',
+        radius: ['50%', '75%'],
+        center: ['50%', '45%'],
+        avoidLabelOverlap: true,
+        label: { show: true, formatter: '{d}%', color: dark ? '#e2e8f0' : '#334155' },
+        data,
+      }],
+      graphic: {
+        type: 'text',
+        left: 'center',
+        top: '40%',
+        style: {
+          text: totalText,
+          textAlign: 'center',
+          fontSize: 16,
+          fontWeight: 600,
+          fill: dark ? '#e2e8f0' : '#334155',
+        },
+      },
+    };
+  });
+
+  // --- B.3: Barras horizontales por técnico (con destaque Bermann) ---
+
+  /** Datos agregados de técnicos: para el chart Y para la altura dinámica. */
+  private tecnicosAgregados = computed(() => {
+    const list = this.filtered();
+    const total = list.length;
+    if (total === 0) return [] as { nombre: string; count: number; pct: number; bermann: boolean }[];
+
+    // Multi-asignación: por cada visita, contar uno por técnico asignado.
+    // Si no tiene técnicos asignados, contar como "Sin técnico".
+    const map = new Map<string, { nombre: string; count: number; bermann: boolean }>();
+    for (const v of list) {
+      const tecs = v.tecnicos && v.tecnicos.length > 0 ? v.tecnicos : v.tecnico ? [v.tecnico] : [];
+      if (tecs.length === 0) {
+        const k = '__sin__';
+        const cur = map.get(k) ?? { nombre: 'Sin técnico', count: 0, bermann: false };
+        cur.count++;
+        map.set(k, cur);
+      } else {
+        for (const t of tecs) {
+          const cur = map.get(t.id) ?? { nombre: `${t.nombre} ${t.apellidos}`, count: 0, bermann: !!t.tecnico_bermann };
+          cur.count++;
+          map.set(t.id, cur);
+        }
+      }
+    }
+
+    return Array.from(map.values())
+      .map((x) => ({ ...x, pct: (x.count / total) * 100 }))
+      .sort((a, b) => b.count - a.count);
+  });
+
+  alturaBarrasTecnicos = computed(() => {
+    const n = this.tecnicosAgregados().length;
+    return Math.max(220, Math.min(28 * n + 80, 600));
+  });
+
+  chartBarrasTecnicos = computed<EChartsOption>(() => {
+    const dark = this.theme.isDark();
+    const data = this.tecnicosAgregados();
+
+    return {
+      ...baseOptions(dark),
+      tooltip: {
+        ...(baseOptions(dark).tooltip as object),
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: unknown) => {
+          const arr = params as { name: string; value: number; data: { count: number } }[];
+          if (!arr.length) return '';
+          const p = arr[0];
+          return `${p.name}<br/>${p.data.count} visitas (${p.value.toFixed(1)}%)`;
+        },
+      },
+      grid: { left: 10, right: 60, top: 10, bottom: 30, containLabel: true },
+      xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
+      yAxis: { type: 'category', data: data.map((d) => d.nombre).reverse(), inverse: true },
+      series: [{
+        type: 'bar',
+        data: data.map((d) => ({
+          value: Number(d.pct.toFixed(2)),
+          count: d.count,
+          itemStyle: { color: d.bermann ? COLOR_BERMANN : COLOR_EXTERNO },
+        })),
+        label: {
+          show: true,
+          position: 'right',
+          formatter: (p: unknown) => {
+            const d = (p as { data: { count: number; value: number } }).data;
+            return `${d.count} (${d.value.toFixed(1)}%)`;
+          },
+          color: dark ? '#cbd5e1' : '#475569',
+        },
+      }],
+    };
+  });
+
+  // --- B.4: Funnel snapshot (sin historial — fallback documentado) ---
+
+  chartFunnel = computed<EChartsOption>(() => {
+    const dark = this.theme.isDark();
+    // Para el funnel sin historial: usar items() (sin filtro de fecha) para cubrir
+    // 'en_cola' que por definición no tiene fecha. Aplicar filtros no-fecha.
+    const tec = this.fTecnico(); const cli = this.fCliente(); const tp = this.fTipo();
+    const filtradosNoFecha = this.items().filter((a) => {
+      if (tec && a.tecnico_id !== tec) return false;
+      if (cli && a.nombre_cliente !== cli) return false;
+      if (tp && a.actividad_id !== tp) return false;
+      return true;
+    });
+
+    const niveles: EstadoVisita[] = ['en_cola', 'coordinado_con_cliente', 'agendado_con_tecnico', 'completada'];
+    const data = niveles.map((e) => ({
+      name: ESTADO_LABEL[e],
+      value: filtradosNoFecha.filter((v) => v.estado === e).length,
+      itemStyle: { color: colorDeEstado(e) },
+    }));
+
+    return {
+      ...baseOptions(dark),
+      tooltip: { ...(baseOptions(dark).tooltip as object), trigger: 'item', formatter: '{b}: {c} visitas' },
+      series: [{
+        type: 'funnel',
+        sort: 'none',
+        gap: 2,
+        label: { show: true, position: 'inside', color: '#fff', fontWeight: 600 },
+        data,
+      }],
+    };
+  });
+
+  // --- B.5: Tasa de fallo por actividad ---
+
+  /** Datos agregados de fallos por actividad — usado para el chart y la altura. */
+  private fallosAgregados = computed(() => {
+    const list = this.filtered();
+    const map = new Map<string, { nombre: string; total: number; fallidas: number }>();
+    for (const v of list) {
+      const acts = v.actividades && v.actividades.length > 0
+        ? v.actividades.map((a) => a.nombre)
+        : [v.actividad?.nombre ?? 'Sin actividad'];
+      for (const nombre of acts) {
+        const cur = map.get(nombre) ?? { nombre, total: 0, fallidas: 0 };
+        cur.total++;
+        if (v.estado === 'visita_fallida') cur.fallidas++;
+        map.set(nombre, cur);
+      }
+    }
+    return Array.from(map.values())
+      .filter((x) => x.total >= 3)
+      .map((x) => ({ ...x, tasa: (x.fallidas / x.total) * 100 }))
+      .sort((a, b) => b.tasa - a.tasa);
+  });
+
+  alturaFallos = computed(() => {
+    const n = this.fallosAgregados().length;
+    return Math.max(200, Math.min(32 * n + 60, 600));
+  });
+
+  chartFallosPorActividad = computed<EChartsOption>(() => {
+    const dark = this.theme.isDark();
+    const data = this.fallosAgregados();
+
+    return {
+      ...baseOptions(dark),
+      tooltip: {
+        ...(baseOptions(dark).tooltip as object),
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: (params: unknown) => {
+          const arr = params as { name: string; data: { tasa: number; total: number; fallidas: number } }[];
+          if (!arr.length) return '';
+          const p = arr[0];
+          return `${p.name}<br/>${p.data.fallidas}/${p.data.total} fallidas (${p.data.tasa.toFixed(1)}%)`;
+        },
+      },
+      grid: { left: 10, right: 60, top: 10, bottom: 30, containLabel: true },
+      xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
+      yAxis: { type: 'category', data: data.map((d) => d.nombre).reverse(), inverse: true },
+      series: [{
+        type: 'bar',
+        data: data.map((d) => ({
+          value: Number(d.tasa.toFixed(2)),
+          tasa: d.tasa,
+          total: d.total,
+          fallidas: d.fallidas,
+          itemStyle: { color: gradientColorByRate(d.tasa) },
+        })),
+        label: {
+          show: true,
+          position: 'right',
+          formatter: (p: unknown) => {
+            const d = (p as { data: { tasa: number; fallidas: number; total: number } }).data;
+            return `${d.fallidas}/${d.total} (${d.tasa.toFixed(0)}%)`;
+          },
+          color: dark ? '#cbd5e1' : '#475569',
+        },
+      }],
+    };
+  });
+
+  // --- B.6: Heatmap día×hora ---
+
+  chartHeatmap = computed<EChartsOption>(() => {
+    const dark = this.theme.isDark();
+    const list = this.filtered().filter((a) => a.fecha_inicio);
+
+    // Matriz [dia 0-6][hora 0-23] -> count
+    const matrix: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    let max = 0;
+    for (const v of list) {
+      const d = new Date(v.fecha_inicio!);
+      // Lun=0, Dom=6 (getDay devuelve Dom=0..Sáb=6)
+      const dia = (d.getDay() + 6) % 7;
+      const hora = d.getHours();
+      matrix[dia][hora]++;
+      if (matrix[dia][hora] > max) max = matrix[dia][hora];
+    }
+
+    // Convertir a [hora, dia, count] — formato echarts
+    const data: [number, number, number][] = [];
+    for (let dia = 0; dia < 7; dia++) {
+      for (let hora = 0; hora < 24; hora++) {
+        data.push([hora, dia, matrix[dia][hora]]);
+      }
+    }
+
+    return {
+      ...baseOptions(dark),
+      tooltip: {
+        ...(baseOptions(dark).tooltip as object),
+        position: 'top',
+        formatter: (p: unknown) => {
+          const params = p as { data: [number, number, number] };
+          const [h, d, c] = params.data;
+          return `${DIAS_LABEL[d]} ${HORAS_LABEL[h]}: ${c} visitas`;
+        },
+      },
+      grid: { left: 50, right: 30, top: 30, bottom: 60, containLabel: true },
+      xAxis: { type: 'category', data: HORAS_LABEL, splitArea: { show: true } },
+      yAxis: { type: 'category', data: DIAS_LABEL, splitArea: { show: true } },
+      visualMap: {
+        min: 0,
+        max: Math.max(1, max),
+        calculable: true,
+        orient: 'horizontal',
+        left: 'center',
+        bottom: 5,
+        textStyle: { color: dark ? '#cbd5e1' : '#475569' },
+        inRange: { color: ['#dbeafe', '#3b82f6', '#1e3a8a'] },
+      },
+      series: [{
+        type: 'heatmap',
+        data,
+        label: { show: false },
+        emphasis: { itemStyle: { shadowBlur: 8, shadowColor: 'rgba(0,0,0,0.3)' } },
+      }],
+    };
+  });
 }
