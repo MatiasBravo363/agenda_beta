@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsOption } from 'echarts';
@@ -272,6 +272,29 @@ export class DashboardComponent implements OnInit {
 
   total = computed(() => this.filtered().length);
   totalAnterior = computed(() => this.filteredAnterior().length);
+
+  // TEMP DEBUG: log para diagnosticar charts vacios. Remover despues de fix.
+  private _debugCharts = effect(() => {
+    const fil = this.filtered();
+    console.log('[DEBUG dashboard] items.length =', this.items().length, '| filtered.length =', fil.length);
+    if (fil.length === 0) {
+      console.log('[DEBUG dashboard] filtered esta vacio — verificar rango de fechas');
+      return;
+    }
+    console.log('[DEBUG dashboard] primeros 3 filtered:', fil.slice(0, 3).map((v) => ({
+      id: v.id,
+      estado: v.estado,
+      fecha_inicio: v.fecha_inicio,
+      tecnico_id: v.tecnico_id,
+      tecnicos_count: v.tecnicos?.length ?? 0,
+      actividad_id: v.actividad_id,
+      actividades_count: v.actividades?.length ?? 0,
+    })));
+    // Conteo por estado para donut
+    const estadosCount: Record<string, number> = {};
+    fil.forEach((v) => { estadosCount[v.estado] = (estadosCount[v.estado] ?? 0) + 1; });
+    console.log('[DEBUG dashboard] estados count (donut):', estadosCount);
+  });
 
   diff = computed(() => {
     const cur = this.total();
