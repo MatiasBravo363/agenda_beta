@@ -3,6 +3,18 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.17] — 2026-04-27
+
+### Fixed
+- **Charts del dashboard que renderizaban vacíos** (donut estados, funnel, barras técnicos, heatmap día×hora, tasa fallo por actividad). El bug venía desde 1.0.14 cuando se sumaron los charts nuevos. Causa raíz: [dashboard.routes.ts](agenda-beta/src/app/features/dashboard/dashboard.routes.ts) usa partial-import de echarts (tree-shaking para mantener bundle bajo) y solo registraba `LineChart`. Los tipos `pie`/`bar`/`funnel`/`heatmap` y los componentes `visualMap`/`graphic` faltaban — echarts los ignora silenciosamente sin warning. Registrados todos. Comentario al tope del archivo documenta la convención: si agregás un chart nuevo, registrá su tipo o no va a renderizar.
+- Intentos previos descartados (1.0.14 reescritura sin spread roto, 1.0.16 `@if filtered.length > 0`) atacaban síntomas distintos pero no la causa real.
+
+## [1.0.16] — 2026-04-27
+
+### Fixed
+- **Postbuild de Sentry no bloquea deploy a producción**. El deploy de 1.0.15 falló porque el `SENTRY_AUTH_TOKEN` configurado en Vercel está expirado/inválido (HTTP 401). Como consecuencia, los fixes de la 1.0.14 (charts del dashboard que estaban vacíos) y 1.0.15 (security + visitas) no llegaron a producción aunque estaban en main. Ahora [scripts/upload-sourcemaps.sh](agenda-beta/scripts/upload-sourcemaps.sh) loguea WARNING y sale 0 si la subida a Sentry falla — los source maps son nice-to-have, no deben bloquear releases.
+- **Acción operativa pendiente**: rotar `SENTRY_AUTH_TOKEN` en Sentry y actualizar la env var en Vercel scope Production. Mientras no se haga, los stack traces en Sentry van a verse ofuscados pero los deploys salen igual.
+
 ## [1.0.15] — 2026-04-27
 
 ### Security
