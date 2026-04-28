@@ -3,6 +3,12 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.16] — 2026-04-27
+
+### Fixed
+- **Postbuild de Sentry no bloquea deploy a producción**. El deploy de 1.0.15 falló porque el `SENTRY_AUTH_TOKEN` configurado en Vercel está expirado/inválido (HTTP 401). Como consecuencia, los fixes de la 1.0.14 (charts del dashboard que estaban vacíos) y 1.0.15 (security + visitas) no llegaron a producción aunque estaban en main. Ahora [scripts/upload-sourcemaps.sh](agenda-beta/scripts/upload-sourcemaps.sh) loguea WARNING y sale 0 si la subida a Sentry falla — los source maps son nice-to-have, no deben bloquear releases.
+- **Acción operativa pendiente**: rotar `SENTRY_AUTH_TOKEN` en Sentry y actualizar la env var en Vercel scope Production. Mientras no se haga, los stack traces en Sentry van a verse ofuscados pero los deploys salen igual.
+
 ## [1.0.15] — 2026-04-27
 
 ### Security
