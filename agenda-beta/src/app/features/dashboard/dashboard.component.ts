@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsOption } from 'echarts';
@@ -137,7 +137,16 @@ const COLOR_EXTERNO = '#94a3b8';
         </div>
         <div class="card p-4">
           <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Distribución por estado</div>
-          <div echarts [options]="chartDonutEstados()" class="w-full" style="height: 360px"></div>
+          <!-- @if delays init hasta que filtered tenga data: echarts pie/funnel/heatmap
+               tiene un bug de merge donde si arranca con data:[] y despues llega data:[N items],
+               no agrega los slices. Inicializar con data completa de entrada lo evita. -->
+          @if (filtered().length > 0) {
+            <div echarts [options]="chartDonutEstados()" class="w-full" style="height: 360px"></div>
+          } @else {
+            <div class="flex items-center justify-center text-xs text-slate-400" style="height: 360px">
+              Sin datos en el rango filtrado
+            </div>
+          }
         </div>
       </div>
 
@@ -148,14 +157,26 @@ const COLOR_EXTERNO = '#94a3b8';
             Distribución por técnico
             <span class="text-xs font-normal text-slate-500 ml-1">(Bermann en azul)</span>
           </div>
-          <div echarts [options]="chartBarrasTecnicos()" class="w-full" [style.height.px]="alturaBarrasTecnicos()"></div>
+          @if (filtered().length > 0) {
+            <div echarts [options]="chartBarrasTecnicos()" class="w-full" [style.height.px]="alturaBarrasTecnicos()"></div>
+          } @else {
+            <div class="flex items-center justify-center text-xs text-slate-400" [style.height.px]="alturaBarrasTecnicos()">
+              Sin datos en el rango filtrado
+            </div>
+          }
         </div>
         <div class="card p-4">
           <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">
             Funnel de estados
             <span class="text-xs font-normal text-slate-500 ml-1">(snapshot actual, no cumulativo)</span>
           </div>
-          <div echarts [options]="chartFunnel()" class="w-full" style="height: 360px"></div>
+          @if (filtered().length > 0) {
+            <div echarts [options]="chartFunnel()" class="w-full" style="height: 360px"></div>
+          } @else {
+            <div class="flex items-center justify-center text-xs text-slate-400" style="height: 360px">
+              Sin datos en el rango filtrado
+            </div>
+          }
         </div>
       </div>
 
@@ -165,7 +186,13 @@ const COLOR_EXTERNO = '#94a3b8';
           Heatmap día × hora
           <span class="text-xs font-normal text-slate-500 ml-1">(solo visitas con fecha)</span>
         </div>
-        <div echarts [options]="chartHeatmap()" class="w-full" style="height: 320px"></div>
+        @if (filtered().length > 0) {
+          <div echarts [options]="chartHeatmap()" class="w-full" style="height: 320px"></div>
+        } @else {
+          <div class="flex items-center justify-center text-xs text-slate-400" style="height: 320px">
+            Sin datos en el rango filtrado
+          </div>
+        }
       </div>
 
       <!-- Tasa de fallo por actividad -->
@@ -174,7 +201,13 @@ const COLOR_EXTERNO = '#94a3b8';
           Tasa de fallo por actividad
           <span class="text-xs font-normal text-slate-500 ml-1">(actividades con &lt;3 visitas filtradas)</span>
         </div>
-        <div echarts [options]="chartFallosPorActividad()" class="w-full" [style.height.px]="alturaFallos()"></div>
+        @if (filtered().length > 0) {
+          <div echarts [options]="chartFallosPorActividad()" class="w-full" [style.height.px]="alturaFallos()"></div>
+        } @else {
+          <div class="flex items-center justify-center text-xs text-slate-400" [style.height.px]="alturaFallos()">
+            Sin datos en el rango filtrado
+          </div>
+        }
       </div>
     </div>
   `,
@@ -272,29 +305,6 @@ export class DashboardComponent implements OnInit {
 
   total = computed(() => this.filtered().length);
   totalAnterior = computed(() => this.filteredAnterior().length);
-
-  // TEMP DEBUG: log para diagnosticar charts vacios. Remover despues de fix.
-  private _debugCharts = effect(() => {
-    const fil = this.filtered();
-    console.log('[DEBUG dashboard] items.length =', this.items().length, '| filtered.length =', fil.length);
-    if (fil.length === 0) {
-      console.log('[DEBUG dashboard] filtered esta vacio — verificar rango de fechas');
-      return;
-    }
-    console.log('[DEBUG dashboard] primeros 3 filtered:', fil.slice(0, 3).map((v) => ({
-      id: v.id,
-      estado: v.estado,
-      fecha_inicio: v.fecha_inicio,
-      tecnico_id: v.tecnico_id,
-      tecnicos_count: v.tecnicos?.length ?? 0,
-      actividad_id: v.actividad_id,
-      actividades_count: v.actividades?.length ?? 0,
-    })));
-    // Conteo por estado para donut
-    const estadosCount: Record<string, number> = {};
-    fil.forEach((v) => { estadosCount[v.estado] = (estadosCount[v.estado] ?? 0) + 1; });
-    console.log('[DEBUG dashboard] estados count (donut):', estadosCount);
-  });
 
   diff = computed(() => {
     const cur = this.total();
