@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, HostListener, inject, OnInit, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -27,11 +27,9 @@ interface FiltrosAplicados {
   busqueda: string;
   estado: EstadoVisita | '';
   tecnico: string;
-  desde: string;
-  hasta: string;
 }
 
-const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: '', tecnico: '', desde: '', hasta: '' };
+const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: '', tecnico: '' };
 
 @Component({
   selector: 'app-visitas-list',
@@ -65,7 +63,7 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
       </div>
 
       <div class="card p-4 space-y-3">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label class="label">Cliente</label>
             <select class="input" [(ngModel)]="pendiente.cliente">
@@ -94,15 +92,10 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
               }
             </select>
           </div>
-          <div>
-            <label class="label">Desde</label>
-            <input class="input" type="date" [(ngModel)]="pendiente.desde"/>
-          </div>
-          <div>
-            <label class="label">Hasta</label>
-            <input class="input" type="date" [(ngModel)]="pendiente.hasta"/>
-          </div>
         </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">
+          El filtro de fechas se controla desde el calendario lateral (click en un día o arrastre para un rango).
+        </p>
         <div class="flex flex-wrap items-center gap-3">
           <button class="btn-primary" (click)="aplicarFiltros()">Buscar</button>
           <button class="btn-secondary" (click)="limpiarFiltros()">Limpiar</button>
@@ -177,26 +170,35 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
             @for (d of diasSemana; track d) { <div>{{ d }}</div> }
           </div>
 
-          <div class="grid grid-cols-7 gap-0.5 text-xs">
+          <div class="grid grid-cols-7 gap-0.5 text-xs"
+               [class.select-none]="dragStart() !== null">
             @for (c of celdasMes(); track $index) {
               @if (c.key) {
                 <button
-                  class="aspect-square flex items-center justify-center rounded relative transition"
+                  type="button"
+                  class="aspect-square flex items-center justify-center relative transition"
                   [class.text-slate-400]="!c.mesActual"
                   [class.text-slate-700]="c.mesActual"
                   [class.dark:text-slate-200]="c.mesActual"
-                  [class.bg-brand-600]="c.key === diaSeleccionado()"
-                  [class.text-white]="c.key === diaSeleccionado()"
-                  [class.hover:bg-slate-100]="c.key !== diaSeleccionado()"
-                  [class.dark:hover:bg-slate-800]="c.key !== diaSeleccionado()"
-                  [class.ring-1]="c.hoy && c.key !== diaSeleccionado()"
-                  [class.ring-brand-400]="c.hoy && c.key !== diaSeleccionado()"
-                  (click)="seleccionarDia(c.key)">
+                  [class.bg-brand-600]="esExtremoUnico(c.key)"
+                  [class.text-white]="esExtremoUnico(c.key) || esExtremoMulti(c.key)"
+                  [class.bg-brand-500]="esExtremoMulti(c.key)"
+                  [class.bg-brand-100]="enRangoSinExtremo(c.key)"
+                  [class.dark:bg-brand-900]="enRangoSinExtremo(c.key)"
+                  [class.rounded]="esExtremoUnico(c.key) || enRangoSinExtremo(c.key)"
+                  [class.rounded-l-md]="esInicioMulti(c.key)"
+                  [class.rounded-r-md]="esFinMulti(c.key)"
+                  [class.hover:bg-slate-100]="!enRango(c.key)"
+                  [class.dark:hover:bg-slate-800]="!enRango(c.key)"
+                  [class.ring-1]="c.hoy && !enRango(c.key)"
+                  [class.ring-brand-400]="c.hoy && !enRango(c.key)"
+                  (mousedown)="onDayMouseDown(c.key, $event)"
+                  (mouseenter)="onDayMouseEnter(c.key)">
                   {{ c.dia }}
                   @if (c.tieneVisita) {
                     <span class="absolute bottom-1 w-1 h-1 rounded-full"
-                          [class.bg-white]="c.key === diaSeleccionado()"
-                          [class.bg-brand-500]="c.key !== diaSeleccionado()"></span>
+                          [class.bg-white]="enRango(c.key)"
+                          [class.bg-brand-500]="!enRango(c.key)"></span>
                   }
                 </button>
               } @else {
@@ -205,8 +207,11 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
             }
           </div>
 
-          @if (diaSeleccionado()) {
-            <button class="btn-secondary w-full text-xs" (click)="seleccionarDia(null)">Ver todos los días</button>
+          @if (rangoInicio()) {
+            <div class="text-xs text-slate-500 dark:text-slate-400 text-center">
+              {{ rangoLabel() }}
+            </div>
+            <button class="btn-secondary w-full text-xs" (click)="limpiarRango()">Limpiar selección</button>
           }
         </aside>
 
@@ -344,7 +349,15 @@ export class VisitasListComponent implements OnInit {
   sortKey = signal<SortKey>('horario');
   sortDir = signal<SortDir>('asc');
 
-  diaSeleccionado = signal<string | null>(null);
+  // Rango de fechas seleccionado en el mini-calendar (1.0.18). Reemplaza
+  // los inputs Desde/Hasta — el calendar es la única fuente de verdad para
+  // el filtro temporal. Por defecto se selecciona la semana actual.
+  // Click simple → 1 día (rangoInicio === rangoFin).
+  // Drag → rango (rangoInicio < rangoFin).
+  rangoInicio = signal<string | null>(null);
+  rangoFin = signal<string | null>(null);
+  // Marca el día donde empezó un drag en curso. null = no hay drag.
+  dragStart = signal<string | null>(null);
   editandoId = signal<string | null>(null);
   clonandoVisita = signal<Visita | null>(null);
   feedback = signal<{ type: 'ok' | 'err'; msg: string } | null>(null);
@@ -382,9 +395,12 @@ export class VisitasListComponent implements OnInit {
   filtradas = computed(() => {
     const f = this.aplicados();
     const q = f.busqueda.trim().toLowerCase();
-    const desde = f.desde ? new Date(f.desde + 'T00:00:00').getTime() : null;
-    const hasta = f.hasta ? new Date(f.hasta + 'T23:59:59').getTime() : null;
-    const dia = this.diaSeleccionado();
+    // Filtro temporal: rango del mini-calendar (rangoInicio…rangoFin). Si
+    // ambos son null, no se filtra por fecha.
+    const ri = this.rangoInicio();
+    const rf = this.rangoFin();
+    const desde = ri ? new Date(ri + 'T00:00:00').getTime() : null;
+    const hasta = rf ? new Date(rf + 'T23:59:59').getTime() : null;
     const key = this.sortKey();
     const mult = this.sortDir() === 'asc' ? 1 : -1;
 
@@ -402,9 +418,6 @@ export class VisitasListComponent implements OnInit {
         const t = new Date(a.fecha_inicio).getTime();
         if (desde != null && t < desde) return false;
         if (hasta != null && t > hasta) return false;
-      }
-      if (dia) {
-        if (diaKey(a.fecha_inicio) !== dia) return false;
       }
       return true;
     });
@@ -467,9 +480,87 @@ export class VisitasListComponent implements OnInit {
     const ny = m.month === 11 ? m.year + 1 : m.year;
     this.mesVisible.set({ year: ny, month: nm });
   }
-  seleccionarDia(k: string | null) {
-    this.diaSeleccionado.set(this.diaSeleccionado() === k ? null : k);
+  // -----------------------------------------------------------------
+  // Mini-calendar drag-range selection (1.0.18)
+  // -----------------------------------------------------------------
+
+  /** mousedown en una celda → arranca el drag con esa celda como inicio y fin. */
+  onDayMouseDown(key: string, ev: MouseEvent) {
+    ev.preventDefault(); // evita selección de texto durante el drag
+    this.dragStart.set(key);
+    this.rangoInicio.set(key);
+    this.rangoFin.set(key);
   }
+
+  /** mouseenter en una celda durante un drag → extiende el rango. */
+  onDayMouseEnter(key: string) {
+    const start = this.dragStart();
+    if (!start) return;
+    const lo = key < start ? key : start;
+    const hi = key < start ? start : key;
+    this.rangoInicio.set(lo);
+    this.rangoFin.set(hi);
+  }
+
+  /**
+   * Listener global: termina el drag al soltar el mouse en cualquier lado.
+   * Acá es donde recargamos del servidor — durante el drag solo actualizamos
+   * los signals locales, evitando una ráfaga de queries.
+   */
+  @HostListener('window:mouseup')
+  onWindowMouseUp() {
+    if (this.dragStart() === null) return;
+    this.dragStart.set(null);
+    this.pagina.set(0);
+    this.reload();
+  }
+
+  enRango(key: string): boolean {
+    const ri = this.rangoInicio();
+    const rf = this.rangoFin();
+    if (!ri || !rf) return false;
+    return key >= ri && key <= rf;
+  }
+
+  esExtremoUnico(key: string): boolean {
+    return this.rangoInicio() === key && this.rangoFin() === key;
+  }
+
+  esInicioMulti(key: string): boolean {
+    const ri = this.rangoInicio();
+    const rf = this.rangoFin();
+    return ri === key && rf !== ri;
+  }
+
+  esFinMulti(key: string): boolean {
+    const ri = this.rangoInicio();
+    const rf = this.rangoFin();
+    return rf === key && rf !== ri;
+  }
+
+  esExtremoMulti(key: string): boolean {
+    return this.esInicioMulti(key) || this.esFinMulti(key);
+  }
+
+  enRangoSinExtremo(key: string): boolean {
+    return this.enRango(key) && !this.esExtremoUnico(key) && !this.esExtremoMulti(key);
+  }
+
+  rangoLabel = computed(() => {
+    const ri = this.rangoInicio();
+    const rf = this.rangoFin();
+    if (!ri) return '';
+    if (!rf || ri === rf) return labelDia(ri);
+    return `${ri} → ${rf}`;
+  });
+
+  limpiarRango() {
+    this.rangoInicio.set(null);
+    this.rangoFin.set(null);
+    this.pagina.set(0);
+    this.reload();
+  }
+
   abrirEdicion(a: Visita) { this.editandoId.set(a.id); }
   cerrarEdicion() { this.editandoId.set(null); }
   async onGuardado() {
@@ -526,6 +617,8 @@ export class VisitasListComponent implements OnInit {
     this.pendiente = { ...FILTROS_VACIOS };
     this.aplicados.set({ ...FILTROS_VACIOS });
     this.pagina.set(0);
+    // Resetea el rango temporal a la semana actual (no a "todo abierto").
+    this.setRangoSemanaActual();
     this.reload();
   }
 
@@ -547,8 +640,8 @@ export class VisitasListComponent implements OnInit {
       const pad = (n: number) => `${n}`.padStart(2, '0');
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     };
-    this.pendiente.desde = fmt(lunes);
-    this.pendiente.hasta = fmt(domingo);
+    this.rangoInicio.set(fmt(lunes));
+    this.rangoFin.set(fmt(domingo));
   }
   async reload() {
     this.cargando.set(true);
@@ -560,8 +653,9 @@ export class VisitasListComponent implements OnInit {
         estado: f.estado || '',
         cliente: f.cliente || '',
         tecnicoId: f.tecnico || '',
-        desde: f.desde || '',
-        hasta: f.hasta || '',
+        // El rango del mini-calendar es la fuente de verdad para fechas (1.0.18).
+        desde: this.rangoInicio() || '',
+        hasta: this.rangoFin() || '',
       });
       this.items.set(items);
       this.total.set(total);

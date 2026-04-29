@@ -39,3 +39,14 @@ export const ESTADOS: EstadoVisita[] = [
   'visita_fallida',
   'completada',
 ];
+
+/**
+ * Estados que requieren al menos un técnico asignado a la visita.
+ * Validación bidireccional: el form bloquea guardar si (a) hay técnicos pero
+ * el estado no está acá, o (b) el estado está acá pero no hay técnicos.
+ */
+export const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = [
+  'agendado_con_tecnico',
+  'visita_fallida',
+  'completada',
+];

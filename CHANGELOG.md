@@ -3,6 +3,21 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.18] — 2026-04-29
+
+### Added
+- **ID correlativo (`#numero`) visible** en el header del form de visita ([visita-form.component.ts](agenda-beta/src/app/features/visitas/visita-form.component.ts)). Solo aparece para visitas existentes, no para "nueva".
+- **Calendar lateral con drag-range selection** en `/visitas/lista`. Click simple = 1 día. Click + arrastre = rango. Default al cargar: lunes a domingo de la semana actual. El rango es la única fuente de verdad del filtro temporal — los inputs Desde/Hasta fueron quitados.
+- **`ESTADOS_REQUIEREN_TECNICO`** exportado desde [estado.util.ts](agenda-beta/src/app/core/utils/estado.util.ts) (antes hard-coded en `visitas-calendar.component.ts`).
+- **`isoToDatetimeLocal` / `datetimeLocalToISO`** en [datetime.util.ts](agenda-beta/src/app/core/utils/datetime.util.ts) (nuevo) — parseo de fechas determinista cross-browser usando `new Date(y, m-1, d, h, mi)` con componentes numéricos.
+
+### Changed
+- **Form de visita ahora gateado por `visitas.editar`**. Sin el permiso, el form muestra banner "Modo solo lectura" + todos los inputs disabled (vía `<fieldset disabled>`). Aplica uniforme a todas las visitas, incluido `completada`. La transición FUERA de `completada` sigue bloqueada por trigger 013 a nivel DB para no super_admin.
+
+### Fixed
+- **Bug de fecha al clonar visitas**. `toLocal/fromLocal` usaban `new Date(string)` con strings sin TZ, parseo inconsistente entre browsers. Reemplazado por util compartido con regex + componentes numéricos.
+- **Validación bidireccional estado ↔ técnico** en `save()` del form. Antes solo validaba "si hay técnicos → estado debe ser X". Ahora también "si estado es X → debe haber al menos un técnico".
+
 ## [1.0.17] — 2026-04-27
 
 ### Fixed

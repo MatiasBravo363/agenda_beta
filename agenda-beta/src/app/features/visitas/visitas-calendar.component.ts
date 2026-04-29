@@ -13,7 +13,7 @@ import { VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { ActividadesService } from '../../core/services/actividades.service';
 import { Actividad, EstadoVisita, Tecnico, Visita } from '../../core/models';
-import { colorDeVisita, colorDeEstado, ESTADO_LABEL, ESTADOS } from '../../core/utils/estado.util';
+import { colorDeVisita, colorDeEstado, ESTADO_LABEL, ESTADOS, ESTADOS_REQUIEREN_TECNICO } from '../../core/utils/estado.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { SpotlightCardComponent } from '../../shared/components/spotlight-card.component';
 import { VisitaFormComponent } from './visita-form.component';
@@ -23,8 +23,6 @@ interface DropPending {
   visita: Visita;
   start: Date;
 }
-
-const ESTADOS_REQUIEREN_TECNICO: EstadoVisita[] = ['agendado_con_tecnico', 'visita_fallida', 'completada'];
 
 @Component({
   selector: 'app-visitas-calendar',

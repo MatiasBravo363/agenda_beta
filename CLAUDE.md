@@ -4,58 +4,68 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository layout
 
-- [agenda-beta/](agenda-beta/) — Angular 21 app (the actual product). All npm/ng commands must be run from here.
-- [agenda-beta/supabase/](agenda-beta/supabase/) — `migrations/` (`001_init.sql` … `010_rename_tipos_visita_a_actividades.sql`) and `seed.sql`. No Supabase CLI project linked; migrations are applied manually in the Supabase dashboard.
-- [SOP/](SOP/) — Standard operating procedures. [SOP/CLAUDE.md](SOP/CLAUDE.md) defines the senior-dev agent role; [SOP/iteraciones/](SOP/iteraciones/) logs each `/modulo` iteration (`YYYY-MM-DD-<modulo>.md`).
-- [.claude/skills/](.claude/skills/) and [.agents/skills/](.agents/skills/) — project-scoped skills, including `/modulo` (the main iteration workflow).
+- [agenda-beta/](agenda-beta/) — Angular 21 app (the actual product). All `npm`/`ng` commands must be run from here.
+- [agenda-beta/supabase/migrations/](agenda-beta/supabase/migrations/) — `001_init.sql` … `019_schema_version_backfill.sql`. No Supabase CLI project linked; migrations are applied **manually** in the Supabase dashboard, in order. `public.schema_version` (table from migration 014) is the source of truth for what's been applied; each new migration must insert its row.
+- [SOP/](SOP/) — Standard operating procedures. [SOP/OPERACION.md](SOP/OPERACION.md) is the deploy/incident runbook. [SOP/iteraciones/](SOP/iteraciones/) logs each `/modulo` iteration as `YYYY-MM-DD-<modulo>.md`.
+- [CHANGELOG.md](CHANGELOG.md) — Keep a Changelog format. Update on every release.
+- [.github/workflows/ci.yml](.github/workflows/ci.yml) — runs lint + test + build in parallel on every PR and push to main.
 
 ## Commands (run inside [agenda-beta/](agenda-beta/))
 
 - `npm start` — dev server (`ng serve`, default http://localhost:4200).
-- `npm run build` — production build. Output: `dist/agenda-beta/browser` (consumed by Vercel, see [agenda-beta/vercel.json](agenda-beta/vercel.json)).
+- `npm run build` — production build. Triggers `postbuild` script that uploads source maps to Sentry (tolerant to failures since 1.0.16; missing/invalid `SENTRY_AUTH_TOKEN` logs a warning but doesn't block the deploy).
 - `npm run watch` — dev build in watch mode.
-- `npm test` — Angular unit tests via `@angular/build:unit-test` (vitest + jsdom).
+- `npm test` — vitest + jsdom via `@angular/build:unit-test`. Run a single spec with `npx vitest run path/to/file.spec.ts`.
+- `npm run lint` / `npm run lint:fix` — ESLint flat config ([eslint.config.js](agenda-beta/eslint.config.js)) with angular-eslint v21 + typescript-eslint v8. Many a11y warnings tolerated; CI gates on errors only.
+- `npm run format` — Prettier on `src/**/*.{ts,html,json,css,scss}`.
 
-There is no lint script. Prettier is installed but has no wrapper script — invoke with `npx prettier` if needed.
+Husky pre-commit is **opt-in**: activate with `git config core.hooksPath .husky` if you want lint-staged on commit.
 
 ## Stack
 
-Angular 21 standalone components with **signals** (zoneless) + Tailwind 3 + FullCalendar 6 + ECharts via `ngx-echarts` (lazy-loaded; see commit `4394cb1` — importing echarts eagerly blows the 500 kB initial bundle budget configured in [agenda-beta/angular.json](agenda-beta/angular.json)) + `@supabase/supabase-js` + `exceljs` + `file-saver` for XLSX exports. Deployed to Vercel as a SPA (rewrite all routes to `index.html`).
+Angular 21 standalone components with **signals** (zoneless) + Tailwind 3 + FullCalendar 6 + ECharts via `ngx-echarts` (partial-import — see critical convention below) + `@supabase/supabase-js` + `exceljs` + `file-saver` for XLSX exports + `@sentry/angular` + Vercel Analytics + Speed Insights (production only). Deployed to Vercel as a SPA (rewrite all routes to `index.html`, see [agenda-beta/vercel.json](agenda-beta/vercel.json)).
+
+Bundle warning budget is **650 kB initial** ([angular.json](agenda-beta/angular.json)); current size hovers around 615 kB. Heavy deps must stay lazy-loaded.
 
 ## Architecture
 
-Routing is declared in [agenda-beta/src/app/app.routes.ts](agenda-beta/src/app/app.routes.ts). Everything behind `authGuard` renders inside `MainLayoutComponent` (sidebar + content). Auth routes (`login`, `reset-password`) use `publicGuard`. Root redirects to `/visitas/lista`. Los paths antiguos `/actividades*` y `/tipos-actividad` siguen funcionando vía redirects.
+Routing is declared in [agenda-beta/src/app/app.routes.ts](agenda-beta/src/app/app.routes.ts). Public routes (`/login`, `/reset-password`, `/status`, `/sin-permisos`) live at the top level. Everything else is nested under a `path: ''` route protected by `authGuard` and rendered inside `MainLayoutComponent`. Root redirects to `/visitas/lista`. Legacy paths `/actividades*` and `/tipos-actividad` redirect to their current locations.
 
 Code is organized as:
 
 - [agenda-beta/src/app/core/](agenda-beta/src/app/core/) — cross-cutting concerns
-  - `auth/` — guards + auth service backed by Supabase Auth (email/password).
+  - `auth/` — `authGuard`, `publicGuard`, `permisoGuard(codigo)`. Auth backed by Supabase Auth (email/password).
   - `supabase/` — single `SupabaseService` wrapper; feature services consume it with async/await.
-  - `services/` — one service per domain table (`visitas`, `actividades`, `technicians`, `users`, `history`, `permisos`, `tipos-usuario`).
+  - `services/` — one service per domain table (`visitas`, `actividades`, `technicians`, `users`, `history`, `permisos`, `tipos-usuario`, `feature-flags`).
   - `models/index.ts` — **all TS domain types live here** (single barrel): `Visita`, `VisitaHistorial`, `Actividad`, `EstadoVisita`, `Tecnico`, `Usuario`, `TipoUsuario`, `Permiso`, `PermisoCodigo`.
-  - `utils/estado.util.ts` — **source of truth for visit state labels and colors.** See business rule below.
-  - `error/chunk-reload.handler.ts` — global `ErrorHandler` que auto-reloadea ante "Failed to fetch dynamically imported module" post-deploy.
-  - `theme/` — dark mode handling.
-- [agenda-beta/src/app/features/](agenda-beta/src/app/features/) — one folder per top-level route: `visitas`, `actividades`, `auth`, `configuracion`, `dashboard`, `history`, `technicians`, `tipos-usuario`, `users`. Components are lazy-loaded via `loadComponent`/`loadChildren`.
-- [agenda-beta/src/app/shared/](agenda-beta/src/app/shared/) — `layouts/main-layout.component.ts` y reusable `components/` (incluye `multi-select.component.ts` y `direccion-autocomplete.component.ts`).
+  - `utils/estado.util.ts` — **source of truth for visit state labels and colors.** See business rules.
+  - `error/` — `SentryAwareErrorHandler` wraps `ChunkReloadErrorHandler`. The latter auto-reloads on `Failed to fetch dynamically imported module` (post-deploy chunk hash mismatch). The former forwards everything else to Sentry.
+  - `theme/` — dark mode handling (`isDark` signal, persisted to localStorage).
+- [agenda-beta/src/app/features/](agenda-beta/src/app/features/) — one folder per top-level route. All components lazy-loaded via `loadComponent`/`loadChildren`.
+- [agenda-beta/src/app/shared/](agenda-beta/src/app/shared/) — layouts + reusable components (`multi-select`, `direccion-autocomplete`, `skeleton`, `spotlight-card`, `visita-clonar-modal`) + directives (`*appSiTiene`, `*appFeature`, `appFocusTrap`).
 
 ## Business rules that shape the code
 
-From [`project_agenda_beta`](../../.claude/projects/.../memory/project_agenda_beta.md) memory and the actual domain logic:
+- **Permissions are code-based, enforced in three layers.** (1) Routes are gated with `permisoGuard('codigo.ver')` in [app.routes.ts](agenda-beta/src/app/app.routes.ts) — every authenticated route except `/` redirect has one. (2) Sidebar menu items use `*appSiTiene='codigo.ver'` ([main-layout.component.ts](agenda-beta/src/app/shared/layouts/main-layout.component.ts)). (3) DB enforces via RLS policies tied to `tipos_usuario` (migration 007). The `permisoGuard` falls **closed** — failure to load permisos within 5 s redirects to `/sin-permisos` (a public route that breaks the redirect loop with `/visitas`). Convention: every `*appSiTiene='X'` item in the sidebar **must** have its route gated with `permisoGuard('X')` using the exact same code. The spec [app.routes.spec.ts](agenda-beta/src/app/app.routes.spec.ts) enforces this.
+- **Dominio bi-nivel: `visita` (registro) y `actividad` (categoría / tipo de tarea).** DB tables: `visitas`, `visitas_historial`, `actividades`, `visita_tecnicos`, `visita_actividades`. Una visita puede tener múltiples técnicos y múltiples actividades vía pivotes (migración 012 restringió RLS de pivotes a creador o super_admin). Los FKs simples `tecnico_id` y `actividad_id` en `visitas` se mantienen como "principal" (primer elemento del array) para retrocompat con vistas legacy.
+- **Visit state → color is derived in the front end**, never stored in DB. All derivation goes through [estado.util.ts](agenda-beta/src/app/core/utils/estado.util.ts) (`colorDeEstado`, `colorDeVisita`, `ESTADO_LABEL`, `ESTADOS`). When adding a new state, update this file first.
+- **Optimistic locking on `visitas.update()`** (migración 015 + service): the client must send the `updated_at` it last read; if DB's current value differs, the trigger raises `ERRCODE 40001`. The service translates that to `ConflictoVisitaError` ([visitas.service.ts](agenda-beta/src/app/core/services/visitas.service.ts)); the form catches it and offers a reload. Super-admin bypasses this check.
+- **State transitions are validated by trigger** (migración 013): `en_cola → completada` is blocked (must pass through agendamiento); leaving `completada` is blocked (terminal). Super-admin bypass.
+- **Audit log via trigger** (migración 017): every INSERT/UPDATE on `visitas` writes to `visitas_historial` with a `cambios jsonb` delta of relevant fields (`estado`, fechas, `tecnico_id`, `actividad_id`, `nombre_cliente`, `descripcion`, `ubicacion`).
+- **Cloning a failed visit** uses `parent_visita_id` (`visitas.service.ts` `clone()`). Preserve this field on clone flows so the lineage stays auditable.
+- **Date filter expansion** (`expandirInicioDia` / `expandirFinDia` in [visitas.service.ts](agenda-beta/src/app/core/services/visitas.service.ts)): when `listPaged({hasta: 'YYYY-MM-DD'})` is called, the service expands `hasta` to `YYYY-MM-DD 23:59:59.999` so the day is included. Without this, Postgres treats `'YYYY-MM-DD'` as midnight and excludes the whole day.
+- **Feature flags** (table `feature_flags`, migración 018) + `FeatureFlagsService` + `*appFeature='key'` directive. Use sparingly; flags should default closed and be removed once the feature is stable.
+- **Technician has `tecnico_bermann` (internal/external) and `region` flags** — both feed into visibility rules in lists/calendar.
 
-- **Permissions are code-based, enforced in two layers.** Routes are gated with `permisoGuard('<codigo>')` (see [agenda-beta/src/app/core/auth/permiso.guard.ts](agenda-beta/src/app/core/auth/permiso.guard.ts)); the DB enforces the same via RLS policies tied to `tipos_usuario` (migration `007`). Use existing codes (`visitas.ver`, `actividades.ver`, `tipos_usuario.gestionar`, …) — do not invent ad-hoc checks in components.
-- **Dominio bi-nivel: `visita` (registro) y `actividad` (categoría/tipo de tarea).** Tras migraciones 009+010: tablas DB `visitas`, `visitas_historial`, `actividades`, `visita_tecnicos`, `visita_actividades`. Interfaces TS: `Visita`, `Actividad`, `VisitaHistorial`, `EstadoVisita`. Bookmarks viejos `/actividades/{lista,calendario,nueva,:id}` redirigen a `/visitas/*`; `/tipos-actividad` y `/tipos-visita` redirigen a `/actividades`.
-- **Visit state → color is derived in the front end**, never stored in DB. All derivation goes through [agenda-beta/src/app/core/utils/estado.util.ts](agenda-beta/src/app/core/utils/estado.util.ts) (`colorDeEstado`, `colorDeVisita`, `ESTADO_LABEL`, `ESTADOS`). When adding a new state, update this file first.
-- **Cloning a failed visit** uses `parent_visita_id` on the visita (ver [visitas.service.ts](agenda-beta/src/app/core/services/visitas.service.ts) `clone()`). Preserve this field on clone flows.
-- **Una visita puede tener múltiples técnicos y múltiples actividades** vía pivotes `visita_tecnicos` y `visita_actividades` (migración 008, renombrada en 010). Los FKs simples `tecnico_id` y `actividad_id` en `visitas` se mantienen como "principal" (primer elemento del array) para retrocompat con vistas legacy (calendar, dashboard, exports).
-- **Technician has `tecnico_bermann` (internal/external) and `region` flags** — both feed into visibility rules en lists/calendar.
-
-## Conventions
+## Conventions and gotchas
 
 - **Standalone components + signals.** New components should not use NgModules and should prefer `signal`/`computed`/`effect` over RxJS when state is local.
-- **Tailwind utility classes defined globally** in [agenda-beta/src/styles.css](agenda-beta/src/styles.css): `btn-primary`, `btn-secondary`, `card`, `input`, `label`, `chip`. Reuse these instead of ad-hoc styles.
-- **Services are async/await**, not Observable-first, when talking to Supabase.
-- **Lazy-load heavy deps** (echarts, fullcalendar plugins) to stay under the 500 kB initial budget.
+- **Tailwind utility classes** defined globally in [styles.css](agenda-beta/src/styles.css): `btn-primary`, `btn-secondary`, `btn-danger`, `card`, `input`, `label`, `chip`, `chip-estado`. Reuse these instead of ad-hoc styles.
+- **Services use async/await**, not Observable-first, when talking to Supabase.
+- **Echarts partial-import — register chart types in `dashboard.routes.ts`.** [dashboard.routes.ts](agenda-beta/src/app/features/dashboard/dashboard.routes.ts) calls `echarts.use([...])` with an explicit list of chart types and components. **If you add a chart of a new type (`pie`, `bar`, `heatmap`, `funnel`, etc.) without registering it here, echarts ignores it silently** — no warning, no error, the chart just doesn't render. Same for components like `VisualMapComponent`, `GraphicComponent`. This bit us across 1.0.14–1.0.16; the file has a comment block warning future devs.
+- **Lazy-load heavy deps** (echarts, fullcalendar plugins, exceljs) to stay under the 650 kB initial budget. Echarts and fullcalendar are imported only inside their feature routes.
+- **Bumping the version**: update **both** [package.json](agenda-beta/package.json) `version` AND [sentry.init.ts](agenda-beta/src/app/core/error/sentry.init.ts) `APP_VERSION` in the same commit. The sidebar reads `package.json#version`; Sentry uses `APP_VERSION` for releases. They must match.
+- **Sentry source maps** uploaded by [scripts/upload-sourcemaps.sh](agenda-beta/scripts/upload-sourcemaps.sh) in `postbuild`. Tolerant to failures (logs warning, exits 0). If you see ofuscated stack traces in Sentry, the token is probably stale — rotate it in Sentry settings and update Vercel env var `SENTRY_AUTH_TOKEN`.
 
 ## Iteration workflow
 
@@ -65,3 +75,5 @@ New features go through the `/modulo` skill (see [.claude/skills/modulo/SKILL.md
 - `/modulo revisar` — apply feedback on the last iteration.
 
 Each run appends a log to [SOP/iteraciones/](SOP/iteraciones/). Read the latest file there before starting related work to avoid re-litigating decisions.
+
+Branch naming for releases: `beta-X.Y.Z` from `main`, PR back to `main`. Each release bumps version, updates CHANGELOG, and ideally has its iteration log in `SOP/iteraciones/`.
