@@ -206,8 +206,11 @@ export class VisitaFormComponent implements OnInit {
   /**
    * Si el usuario tiene permiso visitas.editar. Si no, todos los inputs van
    * disabled vía <fieldset> y el botón Guardar también. Aplica uniforme a
-   * todas las visitas — incluido completadas. La restricción de salir de
-   * "completada" sigue en el trigger 013 a nivel DB para no super_admin.
+   * todas las visitas — incluido completadas.
+   *
+   * Desde 1.0.18 (migración 020) el permiso es el único gate: el trigger 013
+   * que bloqueaba salir de "completada" fue removido. Las validaciones de
+   * coherencia (estado↔técnico, fechas) siguen en `save()` abajo.
    */
   puedeEditar = computed(() => this.permisos.tiene('visitas.editar'));
 
@@ -356,13 +359,12 @@ export class VisitaFormComponent implements OnInit {
     }
     const fe = this.fechaError();
     if (fe) { this.error.set(fe); return; }
-    // Confirmación explícita al marcar como completada (acción semánticamente
-    // terminal: la migración 013 bloquea salir de "completada" para usuarios no
-    // super_admin, así que un click accidental queda atrapado).
+    // Confirmación explícita al marcar como completada. Desde 1.0.18 ya no es
+    // estrictamente irreversible (cualquiera con visitas.editar puede revertir),
+    // pero seguimos pidiendo confirmación porque es un cambio semánticamente
+    // significativo y el historial lo registra como acción del usuario.
     if (!this.isNew && m.estado === 'completada' && this.estadoOriginal !== 'completada') {
-      const ok = confirm(
-        '¿Marcar la visita como Completada? La transición se registra en el historial y no podés revertirla salvo que seas super_admin.',
-      );
+      const ok = confirm('¿Marcar la visita como Completada? La transición se registra en el historial.');
       if (!ok) return;
     }
     const payload: Partial<Visita> = {
