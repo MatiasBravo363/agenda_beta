@@ -12,7 +12,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - **`isoToDatetimeLocal` / `datetimeLocalToISO`** en [datetime.util.ts](agenda-beta/src/app/core/utils/datetime.util.ts) (nuevo) — parseo de fechas determinista cross-browser usando `new Date(y, m-1, d, h, mi)` con componentes numéricos.
 
 ### Changed
-- **Form de visita ahora gateado por `visitas.editar`**. Sin el permiso, el form muestra banner "Modo solo lectura" + todos los inputs disabled (vía `<fieldset disabled>`). Aplica uniforme a todas las visitas, incluido `completada`. La transición FUERA de `completada` sigue bloqueada por trigger 013 a nivel DB para no super_admin.
+- **Form de visita ahora gateado por `visitas.editar`**. Sin el permiso, el form muestra banner "Modo solo lectura" + todos los inputs disabled (vía `<fieldset disabled>`). Aplica uniforme a todas las visitas, incluido `completada`.
+- **Trigger 013 removido** (migración 020). Antes bloqueaba `en_cola → completada` y `completada → otros estados` para no super_admin. Ahora `visitas.editar` es el único gate: cualquier coordinador con el permiso puede hacer cualquier transición. Las validaciones de coherencia (estado↔técnico) siguen en el form. Razón: los coordinadores con permiso de edición necesitan poder corregir errores de marcado y reabrir visitas por reclamos sin depender de super_admin.
 
 ### Fixed
 - **Bug de fecha al clonar visitas**. `toLocal/fromLocal` usaban `new Date(string)` con strings sin TZ, parseo inconsistente entre browsers. Reemplazado por util compartido con regex + componentes numéricos.
