@@ -1,6 +1,7 @@
-import { Component, EventEmitter, HostListener, Input, OnInit, Output, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Visita } from '../../core/models';
+import { datetimeLocalToISO, isoToDatetimeLocal } from '../../core/utils/datetime.util';
 import { FocusTrapDirective } from '../directives/focus-trap.directive';
 
 @Component({
@@ -87,8 +88,8 @@ export class VisitaClonarModalComponent implements OnInit {
         : 60 * 60 * 1000;
     const fin = new Date(now.getTime() + duracionMs);
 
-    this.fechaInicio = this.toLocal(now.toISOString());
-    this.fechaFin = this.toLocal(fin.toISOString());
+    this.fechaInicio = isoToDatetimeLocal(now.toISOString());
+    this.fechaFin = isoToDatetimeLocal(fin.toISOString());
   }
 
   confirmar() {
@@ -104,8 +105,8 @@ export class VisitaClonarModalComponent implements OnInit {
       this.error.set('Ambas fechas son obligatorias.');
       return;
     }
-    const inicioISO = this.fromLocal(this.fechaInicio);
-    const finISO = this.fromLocal(this.fechaFin);
+    const inicioISO = datetimeLocalToISO(this.fechaInicio);
+    const finISO = datetimeLocalToISO(this.fechaFin);
     if (!inicioISO || !finISO) {
       this.error.set('Fechas inválidas.');
       return;
@@ -120,15 +121,5 @@ export class VisitaClonarModalComponent implements OnInit {
 
   onBackdrop() {
     if (!this.clonando()) this.cancelar.emit();
-  }
-
-  private toLocal(iso: string): string {
-    const d = new Date(iso);
-    const pad = (n: number) => `${n}`.padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-
-  private fromLocal(v: string): string | null {
-    return v ? new Date(v).toISOString() : null;
   }
 }

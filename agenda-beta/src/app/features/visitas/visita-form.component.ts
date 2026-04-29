@@ -4,8 +4,10 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ConflictoVisitaError, VisitasService } from '../../core/services/visitas.service';
 import { TechniciansService } from '../../core/services/technicians.service';
 import { ActividadesService } from '../../core/services/actividades.service';
+import { PermisosService } from '../../core/services/permisos.service';
 import { Actividad, EstadoVisita, Tecnico, Visita } from '../../core/models';
-import { ESTADO_LABEL, ESTADOS, colorDeVisita } from '../../core/utils/estado.util';
+import { ESTADO_LABEL, ESTADOS, ESTADOS_REQUIEREN_TECNICO, colorDeVisita } from '../../core/utils/estado.util';
+import { datetimeLocalToISO, isoToDatetimeLocal } from '../../core/utils/datetime.util';
 import { DireccionAutocompleteComponent, DireccionSeleccionada } from '../../shared/components/direccion-autocomplete.component';
 import { MultiSelectComponent, MultiSelectOption } from '../../shared/components/multi-select.component';
 import { VisitaClonarModalComponent } from '../../shared/components/visita-clonar-modal.component';
@@ -23,12 +25,25 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 
       @if (model()) {
         <div class="card p-6 space-y-6">
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
             <span class="inline-block w-3.5 h-3.5 rounded-full" [style.background]="color()"></span>
             <div class="text-xl font-bold">{{ isNew ? 'Nueva visita' : model()!.nombre_cliente }}</div>
+            @if (!isNew && model()?.numero !== null && model()?.numero !== undefined) {
+              <span class="font-mono text-sm text-slate-400 dark:text-slate-500" [title]="'ID interno: ' + model()!.id">
+                #{{ model()!.numero }}
+              </span>
+            }
             <span class="chip bg-slate-100 text-slate-700 ml-auto">{{ estadoLabel() }}</span>
           </div>
 
+          @if (!puedeEditar()) {
+            <div class="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200">
+              <span aria-hidden="true">🔒</span>
+              <span>Modo solo lectura. No tenés permiso para editar visitas (<code class="font-mono text-xs">visitas.editar</code>).</span>
+            </div>
+          }
+
+          <fieldset [disabled]="!puedeEditar()" class="contents">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="md:col-span-2">
               <label class="label">Nombre cliente *</label>
@@ -127,12 +142,13 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
               <textarea class="input min-h-[220px] resize-y" [(ngModel)]="model()!.descripcion" name="descripcion"></textarea>
             </div>
           </div>
+          </fieldset>
 
           @if (error()) { <div class="text-sm text-red-600">{{ error() }}</div> }
 
           <div class="flex gap-2 justify-end pt-4 border-t border-slate-100">
             @if (!isNew) {
-              <button class="btn-secondary" (click)="clone()">Clonar</button>
+              <button class="btn-secondary" (click)="clone()" [disabled]="!puedeEditar()">Clonar</button>
               <button *appSiTiene="'visitas.borrar'" class="btn-danger" (click)="remove()">Eliminar</button>
             }
             @if (embed) {
@@ -140,7 +156,7 @@ import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
             } @else {
               <button class="btn-secondary" routerLink="/visitas">Cancelar</button>
             }
-            <button class="btn-primary" (click)="save()" [disabled]="saving()">
+            <button class="btn-primary" (click)="save()" [disabled]="saving() || !puedeEditar()">
               {{ saving() ? 'Guardando…' : 'Guardar' }}
             </button>
           </div>
@@ -161,6 +177,7 @@ export class VisitaFormComponent implements OnInit {
   private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
   private typeSvc = inject(ActividadesService);
+  private permisos = inject(PermisosService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
@@ -185,6 +202,14 @@ export class VisitaFormComponent implements OnInit {
   // y pedir confirmación. Si cambia el modelo en signal, este campo NO se
   // toca (refleja siempre el valor inicial leído de DB).
   estadoOriginal: EstadoVisita | null = null;
+
+  /**
+   * Si el usuario tiene permiso visitas.editar. Si no, todos los inputs van
+   * disabled vía <fieldset> y el botón Guardar también. Aplica uniforme a
+   * todas las visitas — incluido completadas. La restricción de salir de
+   * "completada" sigue en el trigger 013 a nivel DB para no super_admin.
+   */
+  puedeEditar = computed(() => this.permisos.tiene('visitas.editar'));
 
   tecnicosOptions = computed<MultiSelectOption[]>(() =>
     this.tecnicos().map((t) => ({
@@ -274,13 +299,11 @@ export class VisitaFormComponent implements OnInit {
   }
 
   toLocal(v?: string | null): string {
-    if (!v) return '';
-    const d = new Date(v);
-    const pad = (n: number) => `${n}`.padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return isoToDatetimeLocal(v);
   }
+
   fromLocal(v: string): string | null {
-    return v ? new Date(v).toISOString() : null;
+    return datetimeLocalToISO(v);
   }
 
   toggleModoDuracion(ev: Event) {
@@ -302,15 +325,27 @@ export class VisitaFormComponent implements OnInit {
   }
 
   async save() {
+    if (!this.puedeEditar()) {
+      this.error.set('No tenés permiso para editar visitas.');
+      return;
+    }
     const m = this.model();
     if (!m?.nombre_cliente) { this.error.set('El nombre del cliente es obligatorio'); return; }
     if (!m.estado) { this.error.set('El estado es obligatorio'); return; }
     if (this.actividadesIds().length === 0) { this.error.set('Seleccioná al menos una actividad'); return; }
-    const estadosConTecnico = ['agendado_con_tecnico', 'visita_fallida', 'completada'];
-    if (this.tecnicosIds().length > 0 && !estadosConTecnico.includes(m.estado)) {
+
+    // Validación bidireccional estado ↔ técnico:
+    // (a) si hay técnicos, el estado debe estar en ESTADOS_REQUIEREN_TECNICO
+    if (this.tecnicosIds().length > 0 && !ESTADOS_REQUIEREN_TECNICO.includes(m.estado)) {
       this.error.set('Para asignar técnicos, el estado debe ser "Agendado con técnico", "Visita fallida" o "Completada".');
       return;
     }
+    // (b) si el estado lo requiere, debe haber al menos un técnico
+    if (ESTADOS_REQUIEREN_TECNICO.includes(m.estado) && this.tecnicosIds().length === 0) {
+      this.error.set(`El estado "${ESTADO_LABEL[m.estado]}" requiere al menos un técnico asignado.`);
+      return;
+    }
+
     if (this.modoDuracion() && m.fecha_inicio) {
       const end = new Date(new Date(m.fecha_inicio).getTime() + this.duracionMin() * 60000);
       m.fecha_fin = end.toISOString();
