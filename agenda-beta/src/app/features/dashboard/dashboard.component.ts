@@ -37,11 +37,11 @@ const COLOR_EXTERNO = '#94a3b8';
         <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div>
             <label class="label">Desde</label>
-            <input class="input" type="date" [ngModel]="fDesde()" (ngModelChange)="fDesde.set($event)"/>
+            <input class="input" type="date" [ngModel]="fDesde()" (ngModelChange)="onFechaChange('desde', $event)"/>
           </div>
           <div>
             <label class="label">Hasta</label>
-            <input class="input" type="date" [ngModel]="fHasta()" (ngModelChange)="fHasta.set($event)"/>
+            <input class="input" type="date" [ngModel]="fHasta()" (ngModelChange)="onFechaChange('hasta', $event)"/>
           </div>
           <div>
             <label class="label">Técnico</label>
@@ -71,6 +71,20 @@ const COLOR_EXTERNO = '#94a3b8';
           <button class="btn-secondary" (click)="limpiar()">Limpiar</button>
         </div>
       </div>
+
+      @if (rangoExcedido()) {
+        <div class="card p-4 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 flex items-start gap-3">
+          <span aria-hidden="true" class="text-2xl">⚠️</span>
+          <div class="flex-1">
+            <div class="font-semibold text-amber-900 dark:text-amber-100">Rango máximo permitido: 6 meses</div>
+            <p class="text-sm text-amber-800 dark:text-amber-200 mt-1">
+              Para mantener la performance, las consultas del dashboard están limitadas a un rango de hasta 6 meses.
+              Acortá las fechas o volvé a la semana actual para ver los datos.
+            </p>
+            <button class="btn-primary mt-3" (click)="volverASemanaActual()">Volver a semana actual</button>
+          </div>
+        </div>
+      }
 
       <!-- KPIs row: 4 cards -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -232,29 +246,93 @@ export class DashboardComponent implements OnInit {
   estados = ESTADOS;
   colorDeEstado = colorDeEstado;
 
+  // 1.0.20: cap de 6 meses para el rango del dashboard. Evita full table scans
+  // cuando alguien selecciona "todo el año" por error/curiosidad.
+  private static readonly RANGO_MAX_DIAS = 183;
+
   async ngOnInit() {
-    this.setRangoMesActual();
-    const [acts, tecs, typs] = await Promise.all([this.svc.list(), this.techSvc.list(), this.typeSvc.list()]);
-    this.items.set(acts);
+    this.setRangoSemanaActual();
+    // Catálogos: técnicos y actividades (sin filtro temporal). Las visitas
+    // se cargan luego con cargarVisitas() filtrando por el rango activo.
+    const [tecs, typs] = await Promise.all([this.techSvc.list(), this.typeSvc.list()]);
     this.tecnicos.set(tecs);
     this.tipos.set(typs);
+    await this.cargarVisitas();
   }
 
-  private setRangoMesActual() {
+  /**
+   * Default 1.0.20: semana actual (lunes a domingo). Antes era el mes completo,
+   * pero traía hasta 500 visitas con 5-join sin filtro server-side. Ahora la
+   * carga inicial es ligera y el usuario puede ampliar el rango (hasta 6 meses)
+   * desde el filtro.
+   */
+  private setRangoSemanaActual() {
     const now = new Date();
-    const inicio = new Date(now.getFullYear(), now.getMonth(), 1);
-    const fin = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const dia = now.getDay();
+    const offsetLunes = dia === 0 ? -6 : 1 - dia;
+    const lunes = new Date(now);
+    lunes.setDate(now.getDate() + offsetLunes);
+    const domingo = new Date(lunes);
+    domingo.setDate(lunes.getDate() + 6);
     const fmt = (d: Date) => {
       const pad = (n: number) => `${n}`.padStart(2, '0');
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     };
-    this.fDesde.set(fmt(inicio));
-    this.fHasta.set(fmt(fin));
+    this.fDesde.set(fmt(lunes));
+    this.fHasta.set(fmt(domingo));
   }
 
-  limpiar() {
-    this.setRangoMesActual();
+  /**
+   * Carga visitas vía listPaged con el rango actual. Si el rango excede 6 meses,
+   * no carga nada (el banner del template explica al usuario que acote).
+   */
+  async cargarVisitas() {
+    if (this.rangoExcedido()) {
+      this.items.set([]);
+      return;
+    }
+    const desde = this.fDesde();
+    const hasta = this.fHasta();
+    if (!desde || !hasta) return;
+    const result = await this.svc.listPaged({ limit: 1000, offset: 0, desde, hasta });
+    this.items.set(result.items);
+  }
+
+  /** True si el rango activo es > 6 meses. Se usa para mostrar banner y bloquear charts. */
+  rangoExcedido = computed(() => {
+    const desde = this.fDesde();
+    const hasta = this.fHasta();
+    if (!desde || !hasta) return false;
+    const d = new Date(desde + 'T00:00:00').getTime();
+    const h = new Date(hasta + 'T00:00:00').getTime();
+    if (isNaN(d) || isNaN(h) || h < d) return false;
+    const dias = (h - d) / 86400000;
+    return dias > DashboardComponent.RANGO_MAX_DIAS;
+  });
+
+  /** Vuelve a la semana actual y refresca. Usado por el botón del banner de rango excedido. */
+  async volverASemanaActual() {
+    this.setRangoSemanaActual();
     this.fTecnico.set(''); this.fCliente.set(''); this.fTipo.set('');
+    await this.cargarVisitas();
+  }
+
+  /**
+   * Cuando cambia desde/hasta en el input, setea el signal y recarga visitas
+   * (con debounce para evitar fetch storms si el usuario tipea la fecha).
+   */
+  private fechaTimer: ReturnType<typeof setTimeout> | null = null;
+  onFechaChange(campo: 'desde' | 'hasta', valor: string) {
+    if (campo === 'desde') this.fDesde.set(valor);
+    else this.fHasta.set(valor);
+    if (this.fechaTimer) clearTimeout(this.fechaTimer);
+    this.fechaTimer = setTimeout(() => this.cargarVisitas(), 300);
+  }
+
+  async limpiar() {
+    this.setRangoSemanaActual();
+    this.fTecnico.set(''); this.fCliente.set(''); this.fTipo.set('');
+    await this.cargarVisitas();
   }
 
   clientes = computed(() => {

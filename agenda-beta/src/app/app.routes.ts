@@ -115,11 +115,6 @@ export const routes: Routes = [
         loadComponent: () => import('./features/tipos-usuario/tipos-usuario.component').then((m) => m.TiposUsuarioComponent),
       },
       {
-        path: 'historial',
-        canActivate: [permisoGuard('historial.ver')],
-        loadComponent: () => import('./features/history/history.component').then((m) => m.HistoryComponent),
-      },
-      {
         path: 'configuracion',
         canActivate: [permisoGuard('configuracion.ver')],
         loadComponent: () => import('./features/configuracion/configuracion.component').then((m) => m.ConfiguracionComponent),

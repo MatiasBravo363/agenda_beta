@@ -36,7 +36,7 @@ Code is organized as:
 - [agenda-beta/src/app/core/](agenda-beta/src/app/core/) — cross-cutting concerns
   - `auth/` — `authGuard`, `publicGuard`, `permisoGuard(codigo)`. Auth backed by Supabase Auth (email/password).
   - `supabase/` — single `SupabaseService` wrapper; feature services consume it with async/await.
-  - `services/` — one service per domain table (`visitas`, `actividades`, `technicians`, `users`, `history`, `permisos`, `tipos-usuario`, `feature-flags`).
+  - `services/` — one service per domain table (`visitas`, `actividades`, `technicians`, `users`, `permisos`, `tipos-usuario`, `feature-flags`). El service de `history` fue removido en 1.0.20; la tabla `visitas_historial` sigue activa por trigger 017 para auditoría.
   - `models/index.ts` — **all TS domain types live here** (single barrel): `Visita`, `VisitaHistorial`, `Actividad`, `EstadoVisita`, `Tecnico`, `Usuario`, `TipoUsuario`, `Permiso`, `PermisoCodigo`.
   - `utils/estado.util.ts` — **source of truth for visit state labels and colors.** See business rules.
   - `error/` — `SentryAwareErrorHandler` wraps `ChunkReloadErrorHandler`. The latter auto-reloads on `Failed to fetch dynamically imported module` (post-deploy chunk hash mismatch). The former forwards everything else to Sentry.
