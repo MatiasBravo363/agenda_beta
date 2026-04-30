@@ -3,6 +3,16 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.19] — 2026-04-30
+
+### Changed
+- **RLS de pivotes abierta a `authenticated`** (migración 021). Antes (mig. 012) `visita_tecnicos` y `visita_actividades` requerían que el usuario sea creador de la visita o super_admin para INSERT/UPDATE/DELETE; coordinadores editando visitas ajenas recibían `new row violates row-level security policy for table "visita_tecnicos"`. Ahora cualquier autenticado puede mutar los pivotes — el gate único es `visitas.editar` a nivel form. Mismo modelo que la tabla `visitas` desde migración 007.
+
+### Notas operativas
+- **Aplicar migración 021 manualmente en Supabase Dashboard** antes de mergear a producción.
+- Validaciones que **siguen activas** (recomendadas): coherencia `nombre_cliente`/`estado`/actividades, bidir estado↔técnico, fechas válidas, optimistic locking (trigger 015), audit log con delta jsonb (trigger 017).
+- **Pendientes para evaluar** en una iteración futura: RLS DELETE de `visitas` sigue restringida a creador o super_admin (`visitas.borrar` no es gate efectivo cross-user); `visitas.crear` no se chequea explícitamente (lo cubre `visitas.editar`).
+
 ## [1.0.18] — 2026-04-29
 
 ### Added
