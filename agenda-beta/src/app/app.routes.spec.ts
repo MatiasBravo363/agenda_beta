@@ -16,7 +16,6 @@ const RUTAS_PROTEGIDAS = [
   { path: 'visitas',       codigo: 'visitas.ver' },
   { path: 'actividades',   codigo: 'actividades.ver' },
   { path: 'tecnicos',      codigo: 'tecnicos.ver' },
-  { path: 'historial',     codigo: 'historial.ver' },
   { path: 'configuracion', codigo: 'configuracion.ver' },
   { path: 'usuarios',      codigo: 'usuarios.ver' },
   { path: 'tipos-usuario', codigo: 'tipos_usuario.gestionar' },

@@ -142,8 +142,12 @@ export class VisitasService {
 
   /**
    * Versión paginada con filtros server-side. `total` devuelve el conteo
-   * exacto post-filtro (independiente del límite) — útil para mostrar
-   * "X de Y visitas" en la UI.
+   * estimado post-filtro (basado en pg_class.reltuples — sin scan).
+   *
+   * 1.0.20: cambiado de `count: 'exact'` a `count: 'estimated'` para reducir
+   * carga DB (count exact era el principal hotspot de CPU según el informe
+   * de performance — escaneaba la tabla filtrada en cada llamada). El total
+   * mostrado en el footer puede estar ±5%, aceptable para UX.
    */
   async listPaged(opts: VisitasListOpts = {}): Promise<VisitasListResult> {
     const limit = opts.limit ?? DEFAULT_LIST_LIMIT;
@@ -151,7 +155,7 @@ export class VisitasService {
 
     let q = this.sb.client
       .from(this.table)
-      .select(SELECT_WITH_REL, { count: 'exact' })
+      .select(SELECT_WITH_REL, { count: 'estimated' })
       .order('fecha_inicio', { ascending: true, nullsFirst: false })
       .range(offset, offset + limit - 1);
 

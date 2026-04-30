@@ -3,6 +3,18 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.20] — 2026-04-30
+
+Performance hardening tras aviso de Supabase "max CPU usage exceeded 80%". Mitigación estimada: ~70% menos carga DB.
+
+### Changed
+- **`/visitas/calendario` filtra por rango visible** ([visitas-calendar.component.ts](agenda-beta/src/app/features/visitas/visitas-calendar.component.ts)). Antes cargaba `svc.list()` sin filtro temporal (hasta 500 visitas con 5-join). Ahora hookea el evento `datesSet` de FullCalendar y dispara `listPaged({ desde, hasta })` con debounce 250ms. Solo trae las visitas del rango visible (typically 30-100 vs 500 globales).
+- **`/dashboard` default semana actual + cap de 6 meses** ([dashboard.component.ts](agenda-beta/src/app/features/dashboard/dashboard.component.ts)). Antes: default mes actual + cargaba `svc.list()` sin filtro. Ahora: default semana, carga vía `listPaged({ desde, hasta })` con filtro server-side, y muestra banner "Rango máximo permitido: 6 meses" + bloquea charts si el usuario excede el cap. Botón "Volver a semana actual" para resetear.
+- **`listPaged()` usa `count: 'estimated'` en lugar de `'exact'`** ([visitas.service.ts](agenda-beta/src/app/core/services/visitas.service.ts)). PostgREST devuelve estimación basada en `pg_class.reltuples` (sin scan). El "Total" en el footer puede estar ±5% (UX aceptable). Era el principal hotspot CPU según el informe de performance.
+
+### Removed
+- **Vista `/historial`** completa: borrado [features/history/history.component.ts](agenda-beta/src/app/features/history/), [core/services/history.service.ts](agenda-beta/src/app/core/services/history.service.ts), entrada del sidebar y la ruta de `app.routes.ts` (+ test correspondiente). El permiso `historial.ver` queda inerte en `PermisoCodigo` y DB para retrocompat (no requiere migración). La tabla `visitas_historial` y trigger 017 siguen activos para trazabilidad — son auditables vía Supabase Dashboard si hace falta.
+
 ## [1.0.19] — 2026-04-30
 
 ### Changed

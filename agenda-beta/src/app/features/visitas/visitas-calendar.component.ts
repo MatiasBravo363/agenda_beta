@@ -503,6 +503,14 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
 
   colorDeEstado = colorDeEstado;
 
+  // Rango visible del calendario (1.0.20). Inicializa con la semana actual.
+  // FullCalendar emite datesSet cuando cambia la vista o se navega prev/next,
+  // y desde ahí actualizamos esta señal y refetcheamos solo ese rango.
+  // Antes (pre-1.0.20) se cargaban hasta 500 visitas sin filtro temporal en
+  // cada navegación → hotspot de CPU en Supabase.
+  rangoVisible = signal<{ desde: string; hasta: string }>({ desde: '', hasta: '' });
+  private reloadTimer: ReturnType<typeof setTimeout> | null = null;
+
   options = computed<CalendarOptions>(() => {
     const mode = this.viewMode();
     const vh = this.viewportSize().height;
@@ -554,6 +562,9 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
     eventResize: (arg) => this.onEventChange(arg),
     select: (arg: DateSelectArg) => this.onRangeSelect(arg),
     drop: (info) => this.onExternalDrop(info.date, info.draggedEl),
+    // datesSet: cada vez que cambia el rango visible (init, prev/next, cambio de vista)
+    // actualizamos `rangoVisible` y refetcheamos las visitas con debounce.
+    datesSet: (arg) => this.onDatesSet(arg.startStr, arg.endStr),
     eventClassNames: (arg) => {
       const estado = arg.event.extendedProps['estadoRaw'];
       return estado === 'coordinado_con_cliente' ? ['pulse-coordinado'] : [];
@@ -581,7 +592,13 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
     );
   }
 
-  async ngOnInit() { await this.reloadAll(); }
+  async ngOnInit() {
+    // Catálogos (técnicos y actividades) se cargan una sola vez al montar.
+    // Las visitas se cargan vía onDatesSet cuando FullCalendar emite el rango inicial.
+    const [tecs, typs] = await Promise.all([this.techSvc.list(), this.typeSvc.list()]);
+    this.tecnicos.set(tecs);
+    this.tipos.set(typs);
+  }
 
   ngAfterViewInit() {
     if (this.colaList) {
@@ -589,15 +606,64 @@ export class VisitasCalendarComponent implements OnInit, AfterViewInit, OnDestro
     }
   }
 
-  ngOnDestroy() { this.draggable?.destroy(); }
+  ngOnDestroy() {
+    this.draggable?.destroy();
+    if (this.reloadTimer) clearTimeout(this.reloadTimer);
+  }
 
+  /**
+   * Hook de FullCalendar que dispara cuando cambia el rango visible (init,
+   * prev/next, cambio de vista). Actualiza `rangoVisible` y refetchea las
+   * visitas con debounce de 250ms para evitar fetch storm en clicks rápidos.
+   *
+   * `startStr`/`endStr` vienen en formato 'YYYY-MM-DD' (sin TZ).
+   * El service expande automáticamente `hasta` a 23:59:59.999 vía
+   * `expandirFinDia` (mig 1.0.15).
+   */
+  private onDatesSet(startStr: string, endStr: string) {
+    // FullCalendar entrega `endStr` como exclusivo (un día después del último visible).
+    // Resto 1 día para que sea inclusivo, alineado con la semántica del filtro.
+    const end = new Date(endStr);
+    end.setDate(end.getDate() - 1);
+    const pad = (n: number) => `${n}`.padStart(2, '0');
+    const hasta = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+    const desde = startStr.slice(0, 10);
+
+    this.rangoVisible.set({ desde, hasta });
+
+    if (this.reloadTimer) clearTimeout(this.reloadTimer);
+    this.reloadTimer = setTimeout(() => this.reloadVisitas(), 250);
+  }
+
+  /**
+   * Carga las visitas del rango visible vía listPaged (server-side filter).
+   * Trae también las que están en cola sin fecha (para el sidebar lateral)
+   * mediante una segunda query sin filtro temporal pero limitada a en_cola.
+   */
+  async reloadVisitas() {
+    const { desde, hasta } = this.rangoVisible();
+    if (!desde || !hasta) return;
+    // Query 1: visitas con fecha en el rango visible.
+    const conFecha = await this.svc.listPaged({ limit: 500, offset: 0, desde, hasta });
+    // Query 2: visitas en cola (sin fecha — el sidebar lateral las muestra).
+    const enCola = await this.svc.listPaged({ limit: 200, offset: 0, estado: 'en_cola' });
+    // Merge sin duplicados por id.
+    const map = new Map<string, Visita>();
+    for (const v of conFecha.items) map.set(v.id, v);
+    for (const v of enCola.items) map.set(v.id, v);
+    this.items.set(Array.from(map.values()));
+  }
+
+  /**
+   * Recarga catálogos + visitas. Usar después de mutaciones (crear, eliminar,
+   * cambiar estado) para refrescar todos los datos. El recargo de visitas usa
+   * el rango actual.
+   */
   async reloadAll() {
-    const [acts, tecs, typs] = await Promise.all([
-      this.svc.list(), this.techSvc.list(), this.typeSvc.list(),
-    ]);
-    this.items.set(acts);
+    const [tecs, typs] = await Promise.all([this.techSvc.list(), this.typeSvc.list()]);
     this.tecnicos.set(tecs);
     this.tipos.set(typs);
+    await this.reloadVisitas();
   }
 
   clearFilters() {

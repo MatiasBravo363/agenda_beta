@@ -48,13 +48,6 @@ import pkg from '../../../../package.json';
             <span class="text-lg">📅</span>
             @if (!collapsed()) { <span>Visitas</span> }
           </a>
-          <a *appSiTiene="'historial.ver'" routerLink="/historial" routerLinkActive="bg-brand-50 dark:bg-slate-800 text-brand-700 dark:text-brand-400"
-             class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 whitespace-nowrap"
-             [title]="collapsed() ? 'Historial' : ''">
-            <span class="text-lg">🕑</span>
-            @if (!collapsed()) { <span>Historial</span> }
-          </a>
-
           @if (!collapsed()) {
             <div class="pt-4 pb-1 px-3 text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500">Mantenedores</div>
           } @else {
