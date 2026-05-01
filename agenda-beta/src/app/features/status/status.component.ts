@@ -2,8 +2,14 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { SupabaseService } from '../../core/supabase/supabase.service';
 import { environment } from '../../../environments/environment';
 
-const APP_VERSION = '1.0.13';
+const APP_VERSION = '1.0.21';
 const PING_TIMEOUT_MS = 5000;
+// 1.0.21: throttle del ping a Supabase. La ruta /status es pública y puede
+// ser hiteada por uptime monitors o bots; sin esto cada visita disparaba
+// 1 query a la DB. Con throttle de 60s, múltiples cargas en ese rango
+// reusan el último resultado.
+const PING_THROTTLE_MS = 60_000;
+const LAST_CHECK_KEY = 'agenda.status.ultima_check';
 
 type CheckStatus = 'ok' | 'down' | 'unknown' | 'checking';
 
@@ -80,6 +86,14 @@ export class StatusComponent implements OnInit {
   ]);
 
   async ngOnInit(): Promise<void> {
+    // Si hubo un check exitoso hace menos de PING_THROTTLE_MS, no re-pegarle a
+    // Supabase. Evita que bots/uptime monitors hiteen la DB en loop.
+    // El usuario puede forzar re-check con el botón.
+    const last = this.leerUltimaCheck();
+    if (last && Date.now() - last < PING_THROTTLE_MS) {
+      this.updateCheck('Supabase (PostgREST)', { status: 'ok', detail: 'cacheado' });
+      return;
+    }
     await this.check();
   }
 
@@ -96,11 +110,32 @@ export class StatusComponent implements OnInit {
       const { error } = await Promise.race([ping, timeout]);
       if (error) throw error;
       this.updateCheck('Supabase (PostgREST)', { status: 'ok' });
+      this.guardarUltimaCheck();
     } catch (e: unknown) {
       const detail = (e as { message?: string })?.message ?? 'sin respuesta';
       this.updateCheck('Supabase (PostgREST)', { status: 'down', detail });
+      // No guardamos timestamp en error: queremos que el próximo ngOnInit reintente sin throttle.
     } finally {
       this.cargando.set(false);
+    }
+  }
+
+  private leerUltimaCheck(): number | null {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(LAST_CHECK_KEY);
+      return raw ? parseInt(raw, 10) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private guardarUltimaCheck(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
+    } catch {
+      /* ignored: modo privado puede deshabilitar localStorage */
     }
   }
 

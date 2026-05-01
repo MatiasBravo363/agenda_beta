@@ -3,6 +3,25 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.21] — 2026-04-30
+
+Endurecimiento de fuentes de requests HTTP a Supabase tras audit del reporte de query performance (97.72% del CPU lo consume `set_config`, la query inicial de PostgREST por cada request HTTP).
+
+### Fixed
+- **`publicGuard` chequea signal antes de `getSession()`** ([auth.guard.ts](agenda-beta/src/app/core/auth/auth.guard.ts)). Antes hacía `getSession()` siempre — sumaba 1 request HTTP por navegación a `/login`, `/reset-password`, `/status`, `/sin-permisos` para usuarios ya logueados. Ahora si el signal `auth.isAuthenticated()` es true, redirige sin pegar al backend.
+- **`status.component.ts` `APP_VERSION` actualizado** de `1.0.13` (stale) a `1.0.21`. La página `/status` mostraba versión incorrecta.
+
+### Changed
+- **`/status` con throttle de 60s** ([status.component.ts](agenda-beta/src/app/features/status/status.component.ts)). Cada navegación a `/status` ejecutaba un `select 1 from schema_version` sin protección. Como es ruta pública, uptime monitors o bots podían hitearla en loop. Ahora si el último check exitoso fue hace menos de 60s, muestra "cacheado" sin pegar a la DB. El botón "Volver a chequear" sigue forzando re-check manual.
+
+### Notas operativas
+
+Pasos manuales para confirmar el origen del 97.72% de CPU acumulado:
+1. **Supabase Dashboard → SQL Editor** → ejecutar `SELECT pg_stat_statements_reset();` para limpiar stats acumulados históricos.
+2. Esperar 24h con la 1.0.21 deployada y volver a exportar el reporte. Eso da el ratio REAL de carga actual.
+3. **Vercel Dashboard → Logs** filtrar últimas 24h para identificar endpoints con tráfico anómalo.
+4. **Supabase Dashboard → Auth → Logs** filtrar `TOKEN_REFRESHED` por usuario para detectar tabs abiertas indefinidamente.
+
 ## [1.0.20] — 2026-04-30
 
 Performance hardening tras aviso de Supabase "max CPU usage exceeded 80%". Mitigación estimada: ~70% menos carga DB.
