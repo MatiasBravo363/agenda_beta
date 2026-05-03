@@ -16,6 +16,10 @@ dist/
 **/.env.local
 **/.env.*.local
 
+# Generated environment files (regenerados por scripts/generate-env.mjs en prebuild)
+agenda-beta/src/environments/environment.ts
+agenda-beta/src/environments/environment.prod.ts
+
 # Editor / OS
 .vscode/
 .idea/
