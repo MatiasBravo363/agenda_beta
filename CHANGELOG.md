@@ -3,6 +3,28 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.22] — 2026-05-04
+
+Cierre del flujo de "Recuperar contraseña" end-to-end (existía a medias en código pero nunca había sido validado en producción) y visibilidad de la versión del sistema desde la pantalla de login.
+
+### Added
+- **Versión visible en `/login`** ([login.component.ts](agenda-beta/src/app/features/auth/login.component.ts)). Pequeño footer monoespaciado debajo del card que lee `package.json#version`. Mismo patrón que el sidebar ([main-layout.component.ts](agenda-beta/src/app/shared/layouts/main-layout.component.ts)). Sirve para identificar rápido qué versión corre cada usuario al levantar un soporte.
+- **Pantalla de pedido de reset** en `/reset-password` ([reset-password.component.ts](agenda-beta/src/app/features/auth/reset-password.component.ts)). Antes el componente sólo manejaba la segunda fase (form de nueva contraseña tras click en el link del mail); si entrabas directo a `/reset-password` te decía "Esperando enlace…" sin opción de pedir uno. Ahora el componente arranca pidiendo el email, llama a `auth.resetPasswordForEmail`, muestra estado de "mail enviado" con throttle de 60s en el botón de reenvío, y cuando el usuario llega desde el link del mail conmuta automáticamente al form de nueva contraseña.
+
+### Changed
+- **TTL del enlace de recuperación a 15 minutos** (Authentication → Email OTP Expiration en el Dashboard de Supabase). Antes default 1h. Suficiente para que el mail llegue con margen, sin dejar links válidos por mucho tiempo.
+
+### Notas operativas
+
+Configuración manual en el Dashboard del proyecto Supabase nuevo (`wwaqxpisuitimpdfuuhj`) **antes** de mergear a producción:
+
+1. **Authentication → URL Configuration → Site URL**: setear a la URL de producción de Vercel.
+2. **Authentication → URL Configuration → Redirect URLs**: agregar la URL de prod + el wildcard de previews (ej. `https://agenda-beta-git-*-<usuario>.vercel.app/reset-password`).
+3. **Authentication → Email → Email OTP Expiration**: 900 (segundos = 15 min).
+4. **Authentication → Email Templates → Reset Password**: verificar que esté habilitado.
+
+Sin estos pasos el link del mail llega pero no funciona (Supabase rechaza la redirección por no estar autorizada).
+
 ## [1.0.21] — 2026-04-30
 
 Endurecimiento de fuentes de requests HTTP a Supabase tras audit del reporte de query performance (97.72% del CPU lo consume `set_config`, la query inicial de PostgREST por cada request HTTP).

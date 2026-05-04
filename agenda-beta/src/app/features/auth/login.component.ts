@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { mensajeAuthGenerico } from '../../core/auth/error-messages.util';
+import pkg from '../../../../package.json';
 
 @Component({
   selector: 'app-login',
@@ -10,34 +11,38 @@ import { mensajeAuthGenerico } from '../../core/auth/error-messages.util';
   imports: [FormsModule, RouterLink],
   template: `
     <div class="min-h-screen grid place-items-center p-6">
-      <div class="card w-full max-w-md p-8">
-        <div class="mb-8">
-          <div class="text-2xl font-extrabold tracking-tight">Agenda<span class="text-brand-600">_BETA</span></div>
-          <p class="text-slate-500 text-sm mt-1">Gestión de visitas de técnicos en terreno.</p>
-        </div>
-
-        <form (ngSubmit)="submit()" class="space-y-4">
-          <div>
-            <label class="label">Email</label>
-            <input class="input" type="email" [(ngModel)]="email" name="email" required autocomplete="email"/>
-          </div>
-          <div>
-            <label class="label">Contraseña</label>
-            <input class="input" type="password" [(ngModel)]="password" name="password" required autocomplete="current-password"/>
+      <div class="w-full max-w-md">
+        <div class="card p-8">
+          <div class="mb-8">
+            <div class="text-2xl font-extrabold tracking-tight">Agenda<span class="text-brand-600">_BETA</span></div>
+            <p class="text-slate-500 text-sm mt-1">Gestión de visitas de técnicos en terreno.</p>
           </div>
 
-          @if (error()) {
-            <div class="text-sm text-red-600">{{ error() }}</div>
-          }
+          <form (ngSubmit)="submit()" class="space-y-4">
+            <div>
+              <label class="label">Email</label>
+              <input class="input" type="email" [(ngModel)]="email" name="email" required autocomplete="email"/>
+            </div>
+            <div>
+              <label class="label">Contraseña</label>
+              <input class="input" type="password" [(ngModel)]="password" name="password" required autocomplete="current-password"/>
+            </div>
 
-          <button class="btn-primary w-full" type="submit" [disabled]="loading()">
-            {{ loading() ? 'Ingresando…' : 'Ingresar' }}
-          </button>
-        </form>
+            @if (error()) {
+              <div class="text-sm text-red-600">{{ error() }}</div>
+            }
 
-        <div class="text-sm text-slate-500 mt-6 text-center">
-          ¿Olvidaste tu contraseña? <a routerLink="/reset-password" class="text-brand-600 font-medium">Recuperarla</a>
+            <button class="btn-primary w-full" type="submit" [disabled]="loading()">
+              {{ loading() ? 'Ingresando…' : 'Ingresar' }}
+            </button>
+          </form>
+
+          <div class="text-sm text-slate-500 mt-6 text-center">
+            ¿Olvidaste tu contraseña? <a routerLink="/reset-password" class="text-brand-600 font-medium">Recuperarla</a>
+          </div>
         </div>
+
+        <p class="text-center text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-4">V{{ version }}</p>
       </div>
     </div>
   `,
@@ -50,6 +55,7 @@ export class LoginComponent {
   password = '';
   loading = signal(false);
   error = signal<string | null>(null);
+  version = (pkg as { version: string }).version;
 
   async submit() {
     this.loading.set(true);
