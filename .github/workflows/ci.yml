@@ -5,6 +5,14 @@ on:
   push:
     branches: [main]
 
+# Placeholders para que el postinstall (scripts/generate-env.mjs) no falle.
+# CI no se conecta al backend real — los tests usan mocks y el build solo valida que compile.
+# Los valores reales viven en Vercel env vars (Production/Preview).
+env:
+  SUPABASE_URL: https://ci.placeholder.supabase.co
+  SUPABASE_ANON_KEY: ci_placeholder_anon_key
+  SENTRY_DSN: ""
+
 jobs:
   lint:
     name: Lint
