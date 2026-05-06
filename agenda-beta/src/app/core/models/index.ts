@@ -12,6 +12,7 @@ export type PermisoCodigo =
   | 'visitas.crear'
   | 'visitas.editar'
   | 'visitas.borrar'
+  | 'visitas.borrar_ajenas'
   | 'visitas.exportar'
   | 'tecnicos.ver'
   | 'tecnicos.crear'
@@ -25,10 +26,8 @@ export type PermisoCodigo =
   | 'usuarios.invitar'
   | 'usuarios.editar'
   | 'usuarios.borrar'
-  | 'historial.ver'
   | 'dashboard.ver'
   | 'configuracion.ver'
-  | 'log.ver'
   | 'tipos_usuario.gestionar';
 
 export interface TipoUsuario {
