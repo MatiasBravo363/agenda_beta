@@ -3,6 +3,28 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.23] — 2026-05-05
+
+Permiso explícito para borrar visitas creadas por otros + auditoría del catálogo de permisos (descripciones desactualizadas y obsoletos).
+
+### Added
+- **`visitas.borrar_ajenas`** ([migración 022](agenda-beta/supabase/migrations/022_visitas_borrar_ajenas_y_descripciones.sql)). Antes, un usuario con `visitas.borrar` veía el botón "Borrar" en la UI pero al click la RLS de DELETE lo bloqueaba si no era creador ni super_admin → error confuso. Ahora hay un permiso específico para destrabar ese caso. Por seed se asigna a `super_admin`; los otros tipos (Administrador, Coordinador, Post venta) lo configuran manualmente desde `/tipos-usuario`.
+- **Helper SQL `tiene_permiso(codigo)`** (mig 022). Reutilizable en cualquier policy RLS que necesite validar un permiso por código sin re-implementar el JOIN cada vez. SECURITY DEFINER, indexable.
+
+### Changed
+- **RLS de `visitas` DELETE** (mig 022). Antes: `using (es_super_admin OR created_by = auth.uid())`. Ahora: `using (es_super_admin OR created_by = auth.uid() OR tiene_permiso('visitas.borrar_ajenas'))`.
+- **UI del botón "Borrar"** en [visitas-list.component.ts](agenda-beta/src/app/features/visitas/visitas-list.component.ts). Antes se gateaba con `*appSiTiene='visitas.borrar'` (mostraba el botón pero la DB lo bloqueaba después). Ahora usa un método `puedeBorrar(visita)` que combina el permiso `visitas.borrar` con la condición de ser creador o tener `visitas.borrar_ajenas`. Solo aparece el botón cuando el click va a funcionar — fin de la confusión UI/DB.
+- **Descripciones de 9 permisos actualizadas** (mig 022). Las migraciones 009/010 renombraron códigos pero no descripciones, quedando entradas como `visitas.ver` con descripción "Ver actividades" o `actividades.editar` con "Editar tipo de actividad". Ahora dicen lo que realmente son.
+
+### Removed
+- **`historial.ver`** del catálogo (mig 022). Inerte desde 1.0.20 cuando se removió la vista `/historial`. También quitado del enum `PermisoCodigo` en TS.
+- **`log.ver`** del catálogo (mig 022). Permiso seedeado en 007 pero el módulo "log de auditoría" nunca se implementó. También quitado del enum `PermisoCodigo`. Si en el futuro se hace una vista de auditoría, se agrega un permiso nuevo con nombre claro.
+
+### Notas operativas
+
+- **Aplicar la migración 022** manualmente en el SQL Editor del proyecto Supabase NUEVO (`wwaqxpisuitimpdfuuhj`) **antes** de mergear el PR a main. Validar con `SELECT * FROM schema_version ORDER BY version DESC LIMIT 1` que aparezca la 22.
+- Los `tipos_usuario_permisos` que referenciaban `historial.ver` y `log.ver` se borran por CASCADE — sin impacto, eran permisos inertes.
+
 ## [1.0.22] — 2026-05-04
 
 Cierre del flujo de "Recuperar contraseña" end-to-end (existía a medias en código pero nunca había sido validado en producción) y visibilidad de la versión del sistema desde la pantalla de login.

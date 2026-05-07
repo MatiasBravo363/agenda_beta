@@ -12,6 +12,8 @@ import { VisitaClonarModalComponent } from '../../shared/components/visita-clona
 import { SiTieneDirective } from '../../shared/directives/si-tiene.directive';
 import { SkeletonComponent } from '../../shared/components/skeleton.component';
 import { mensajeGenericoDeError } from '../../core/services/service-error.util';
+import { AuthService } from '../../core/auth/auth.service';
+import { PermisosService } from '../../core/services/permisos.service';
 import { agruparPorDia, diaKey, labelDia, GrupoDia } from './visitas-grupos.util';
 
 // diaKey, labelDia, GrupoDia y agruparPorDia se extrajeron a visitas-grupos.util.ts
@@ -290,7 +292,9 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
                     <td class="px-4 py-2.5 text-right space-x-2 whitespace-nowrap">
                       <a class="text-brand-600 hover:underline" [routerLink]="['/visitas', a.id]">Abrir</a>
                       <button class="text-slate-500 hover:underline" (click)="clone(a)">Clonar</button>
-                      <button *appSiTiene="'visitas.borrar'" class="text-red-600 hover:underline" (click)="remove(a)">Borrar</button>
+                      @if (puedeBorrar(a)) {
+                        <button class="text-red-600 hover:underline" (click)="remove(a)">Borrar</button>
+                      }
                     </td>
                   </tr>
                 }
@@ -327,6 +331,23 @@ const FILTROS_VACIOS: FiltrosAplicados = { cliente: '', busqueda: '', estado: ''
 export class VisitasListComponent implements OnInit {
   private svc = inject(VisitasService);
   private techSvc = inject(TechniciansService);
+  private auth = inject(AuthService);
+  private permisos = inject(PermisosService);
+
+  /**
+   * Decide si el botón "Borrar" se renderiza para una visita dada.
+   * Reglas (alineadas con la RLS de DELETE en mig 022):
+   *   - Sin `visitas.borrar` → no.
+   *   - Si soy el creador → sí.
+   *   - Si tengo `visitas.borrar_ajenas` (super_admin lo tiene por seed) → sí.
+   *   - Caso contrario → no.
+   */
+  puedeBorrar(v: Visita): boolean {
+    if (!this.permisos.tiene('visitas.borrar')) return false;
+    const uid = this.auth.user()?.id;
+    if (!uid) return false;
+    return v.created_by === uid || this.permisos.tiene('visitas.borrar_ajenas');
+  }
 
   items = signal<Visita[]>([]);
   tecnicos = signal<Tecnico[]>([]);
