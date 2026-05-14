@@ -3,6 +3,19 @@
 Todos los cambios notables del proyecto se documentan acá.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.0.24] — 2026-05-07
+
+Heartbeat de versión: detecta cuando un cliente está corriendo código antiguo (tab abierta hace días/semanas) y lo fuerza a recargar. Motivado por incidente del 7-mayo donde una tab abierta 22 hs entró en loop infinito de UPDATEs sobre `visitas` por un bug arreglado en 1.0.18 que esa tab no tenía.
+
+### Added
+- **`VersionCheckService`** ([core/services/version-check.service.ts](agenda-beta/src/app/core/services/version-check.service.ts)). Hace fetch a `/version.json` (estático, generado en build) al inicio, cada 30 min y al volver visible la tab. Compara con `package.json#version` del cliente; si difieren emite signal `actualizacionDisponible`.
+- **`UpdateBannerComponent`** ([shared/components/update-banner.component.ts](agenda-beta/src/app/shared/components/update-banner.component.ts)). Banner top-fixed amber con countdown 30s y botón "Actualizar ahora". Auto-reload al llegar a 0.
+- **`public/version.json`** generado en cada build por [scripts/generate-env.mjs](agenda-beta/scripts/generate-env.mjs). Contiene `{ "version": "<package.json#version>" }`. Vercel lo sirve como estático; el cliente le pega con cache-buster `?t=Date.now()`.
+
+### Fixed
+- **`/status` muestra la versión correcta**. Antes el archivo tenía `const APP_VERSION = '1.0.21'` hardcoded — desincronizado con package.json (1.0.23). Ahora lee `pkg.version` igual que el sidebar y `/login` ([status.component.ts](agenda-beta/src/app/features/status/status.component.ts)).
+- **Doble carga de permisos al login**. `AuthService` dispara `cargarPermisos` en `getSession()` inicial Y en evento `SIGNED_IN` (Supabase emite ambos al cargar la app post-login), y `PermisosService.cargar()` no tenía guard → 4 endpoints (`usuarios`, `tipos_usuario`, `tipos_usuario_permisos`, `permisos`) se llamaban 2 veces. Ahora `cargar()` ignora la 2ª llamada para el mismo userId ([permisos.service.ts](agenda-beta/src/app/core/services/permisos.service.ts)).
+
 ## [1.0.23] — 2026-05-05
 
 Permiso explícito para borrar visitas creadas por otros + auditoría del catálogo de permisos (descripciones desactualizadas y obsoletos).

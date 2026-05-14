@@ -79,4 +79,14 @@ fs.mkdirSync(envDir, { recursive: true });
 fs.writeFileSync(path.join(envDir, 'environment.ts'), dev);
 fs.writeFileSync(path.join(envDir, 'environment.prod.ts'), prod);
 
-console.log('[generate-env] ✓ environment.ts y environment.prod.ts generados.');
+// public/version.json — usado por VersionCheckService (1.0.24+) para detectar
+// que un cliente está corriendo código antiguo y forzar reload.
+const pkgJson = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf-8'));
+const publicDir = path.join(projectDir, 'public');
+fs.mkdirSync(publicDir, { recursive: true });
+fs.writeFileSync(
+  path.join(publicDir, 'version.json'),
+  JSON.stringify({ version: pkgJson.version }) + '\n',
+);
+
+console.log('[generate-env] ✓ environment.ts, environment.prod.ts y public/version.json generados.');
