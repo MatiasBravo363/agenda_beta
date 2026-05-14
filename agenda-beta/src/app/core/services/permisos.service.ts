@@ -15,6 +15,10 @@ export class PermisosService {
   private tipoSig = signal<string | null>(null);
   private cargadoSig = signal(false);
   private cargaPromise: Promise<void> | null = null;
+  // Guard de doble carga (1.0.24): AuthService dispara cargarPermisos en
+  // getSession() inicial Y en evento SIGNED_IN, llamando 4 endpoints x2.
+  // Si ya cargué para este userId (o estoy cargándolo), evito repetir.
+  private ultimoUserCargado: string | null = null;
 
   readonly codigos = computed(() => Array.from(this.codigosSig()));
   readonly tipo = this.tipoSig.asReadonly();
@@ -52,6 +56,13 @@ export class PermisosService {
   }
 
   async cargar(userId: string): Promise<void> {
+    // Guard de doble carga: si ya cargué para este userId (o estoy cargando),
+    // no repetir. Si hay carga en curso, espero esa misma promise.
+    if (this.ultimoUserCargado === userId) {
+      if (this.cargaPromise) await this.cargaPromise;
+      if (this.cargadoSig()) return;
+    }
+    this.ultimoUserCargado = userId;
     this.cargaPromise = (async () => {
       try {
         const [codigos, tipoNombre] = await Promise.all([
@@ -80,5 +91,6 @@ export class PermisosService {
     this.tipoSig.set(null);
     this.cargadoSig.set(false);
     this.cargaPromise = null;
+    this.ultimoUserCargado = null;
   }
 }

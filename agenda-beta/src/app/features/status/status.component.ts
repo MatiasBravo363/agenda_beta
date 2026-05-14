@@ -1,8 +1,9 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { SupabaseService } from '../../core/supabase/supabase.service';
 import { environment } from '../../../environments/environment';
+import pkg from '../../../../package.json';
 
-const APP_VERSION = '1.0.21';
+const APP_VERSION = (pkg as { version: string }).version;
 const PING_TIMEOUT_MS = 5000;
 // 1.0.21: throttle del ping a Supabase. La ruta /status es pública y puede
 // ser hiteada por uptime monitors o bots; sin esto cada visita disparaba
